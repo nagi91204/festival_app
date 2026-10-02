@@ -7,7 +7,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import F, Max
 from django.utils import timezone
 
-from .models import BuzzerAttempt, Game, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry
+from .models import BuzzerAttempt, Game, GameLog, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry
 
 
 class QuizConsumer(AsyncJsonWebsocketConsumer):
@@ -108,7 +108,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def set_connected(self, player_id, connected):
-        GamePlayer.objects.filter(id=player_id, game_id=self.game_id).update(connected=connected)
+        player = GamePlayer.objects.filter(id=player_id, game_id=self.game_id).first()
+        if player and player.connected != connected:
+            player.connected = connected
+            player.save(update_fields=["connected"])
+            self.add_log(player.game, "disconnected" if not connected else "connected", f"{player.nickname} さんが{'退出' if not connected else '再接続'}しました。", player)
 
     @database_sync_to_async
     def join_player(self, raw_nickname, old_player_id):
@@ -124,6 +128,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 if player:
                     player.connected = True
                     player.save(update_fields=["connected"])
+                    self.add_log(game, "rejoined", f"{player.nickname} さんが再接続しました。", player)
                     return {"id": player.id, "nickname": player.nickname}
             if game.players.count() >= game.max_players:
                 raise ValueError(f"参加者は最大{game.max_players}人です。")
@@ -132,6 +137,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             used_slots = set(game.players.values_list("slot", flat=True))
             slot = next(number for number in range(1, game.max_players + 1) if number not in used_slots)
             player = GamePlayer.objects.create(game=game, nickname=nickname, slot=slot)
+            self.add_log(game, "joined", f"{player.nickname} さんが参加しました。", player)
             return {"id": player.id, "nickname": player.nickname}
 
     @database_sync_to_async
@@ -153,6 +159,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             PlayerAnswer.objects.create(game_question=game_question, player=player, selected_choice=choice, is_correct=correct)
             if correct:
                 GamePlayer.objects.filter(id=player.id).update(score=F("score") + game_question.question.points)
+            self.add_log(game, "answer", f"{player.nickname} さんが問題 {game.current_index + 1} に {choice}番で回答（{'正解' if correct else '不正解'}）。", player)
 
     @database_sync_to_async
     def buzz(self):
@@ -171,6 +178,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             game.buzzed_player = player
             game.phase = Game.Phase.BUZZER_LOCKED
             game.save(update_fields=["buzzed_player", "phase"])
+            self.add_log(game, "buzz", f"{player.nickname} さんが問題 {game.current_index + 1} で早押ししました。", player)
 
     @database_sync_to_async
     def start_next_question(self):
@@ -191,6 +199,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             game.question_started_at = timezone.now()
             game.phase = Game.Phase.QUESTION if question.question_type == Question.QuestionType.CHOICE else Game.Phase.BUZZER_OPEN
             game.save(update_fields=["status", "current_index", "buzzed_player", "question_started_at", "phase"])
+            self.add_log(game, "question_started", f"問題 {next_index + 1}「{question.title}」を開始しました。")
 
     @database_sync_to_async
     def close_answers(self):
@@ -201,6 +210,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 raise ValueError("選択式の回答時間ではありません。")
             game.phase = Game.Phase.ANSWER_CLOSED
             game.save(update_fields=["phase"])
+            self.add_log(game, "answers_closed", f"問題 {game.current_index + 1} の回答を締め切りました。")
 
     @database_sync_to_async
     def reveal_result(self):
@@ -210,6 +220,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 raise ValueError("現在は結果を発表できません。")
             game.phase = Game.Phase.RESULT
             game.save(update_fields=["phase"])
+            self.add_log(game, "result_revealed", f"問題 {game.current_index + 1} の結果を発表しました。")
 
     @database_sync_to_async
     def open_buzzer(self):
@@ -220,6 +231,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             game.buzzed_player = None
             game.phase = Game.Phase.BUZZER_OPEN
             game.save(update_fields=["buzzed_player", "phase"])
+            self.add_log(game, "buzzer_opened", f"問題 {game.current_index + 1} の早押しを開きました。")
 
     @database_sync_to_async
     def judge_buzzer(self, correct):
@@ -237,20 +249,27 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             game.buzzed_player = None
             game.phase = Game.Phase.RESULT if correct else Game.Phase.BUZZER_OPEN
             game.save(update_fields=["buzzed_player", "phase"])
+            self.add_log(game, "buzz_judged", f"{attempt.player.nickname} さんの早押しを{'正解' if correct else '不正解'}と判定しました。", attempt.player)
 
     @database_sync_to_async
     def adjust_score(self, player_id, delta):
         delta = max(-100, min(delta, 100))
         if not player_id:
             raise ValueError("参加者を選んでください。")
-        updated = GamePlayer.objects.filter(id=player_id, game_id=self.game_id).update(score=F("score") + delta)
-        if not updated:
+        player = GamePlayer.objects.filter(id=player_id, game_id=self.game_id).first()
+        if not player:
             raise ValueError("参加者が見つかりません。")
+        GamePlayer.objects.filter(id=player.id).update(score=F("score") + delta)
+        self.add_log(player.game, "score_adjusted", f"{player.nickname} さんの得点を {delta:+d} 点に調整しました。", player)
 
     @database_sync_to_async
     def set_seconds(self, seconds):
         seconds = max(5, min(seconds, 120))
-        Game.objects.filter(id=self.game_id, status=Game.Status.LOBBY).update(seconds_per_question=seconds)
+        game = Game.objects.filter(id=self.game_id, status=Game.Status.LOBBY).first()
+        if game:
+            game.seconds_per_question = seconds
+            game.save(update_fields=["seconds_per_question"])
+            self.add_log(game, "seconds_changed", f"制限時間を {seconds} 秒に変更しました。")
 
     @database_sync_to_async
     def expire_question(self):
@@ -270,6 +289,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         else:
             return False
         game.save(update_fields=["phase", "buzzed_player"])
+        self.add_log(game, "question_expired", f"問題 {game.current_index + 1} の制限時間が終了しました。")
         return True
 
     def lock_current_game_question(self):
@@ -298,6 +318,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             rankings.append(RankingEntry(game=game, player_name=player.nickname, score=player.score, rank=rank))
             previous_score, previous_rank = player.score, rank
         RankingEntry.objects.bulk_create(rankings)
+        self.add_log(game, "game_finished", "ゲームを終了しました。")
+
+    def add_log(self, game, event, message, player=None):
+        GameLog.objects.create(game=game, event=event, message=message, player=player)
 
     @database_sync_to_async
     def get_state(self, include_admin=False):
@@ -311,7 +335,13 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             question_data = {"number": game.current_index + 1, "total": len(game_questions), "type": question.question_type, "category": question.category, "body": question.body, "choices": question.choices, "points": question.points, "image_url": question.image.url if question.image else "", "audio_url": question.audio_file.url if question.audio_file else ""}
             if include_admin or game.phase in (Game.Phase.RESULT, Game.Phase.FINISHED):
                 question_data.update({"correct_choice": question.correct_choice, "correct_text": question.correct_text or (question.choices[question.correct_choice - 1] if question.correct_choice else ""), "explanation": question.explanation})
-                answer_data = list(current_gq.answers.select_related("player").values("player__nickname", "selected_choice", "is_correct"))
+                answer_data = list(current_gq.answers.select_related("player").values("player_id", "player__nickname", "selected_choice", "is_correct"))
+                if include_admin:
+                    for answer in answer_data:
+                        answer["player_id"] = str(answer["player_id"])
+                else:
+                    for answer in answer_data:
+                        answer.pop("player_id")
         answered_ids = list(current_gq.answers.values_list("player_id", flat=True)) if current_gq else []
         rankings = list(game.ranking_entries.values("rank", "player_name", "score"))
         previous_best = RankingEntry.objects.exclude(game=game).aggregate(best=Max("score"))["best"]
@@ -319,4 +349,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         buzzer_attempts = []
         if include_admin and current_gq:
             buzzer_attempts = list(current_gq.buzz_attempts.select_related("player").values("player__nickname", "is_correct", "score_delta", "buzzed_at"))
-        return {"game": {"id": str(game.id), "title": game.title, "status": game.status, "phase": game.phase, "seconds": game.seconds_per_question, "deadline": (game.question_started_at + timedelta(seconds=game.seconds_per_question)).isoformat() if game.question_started_at else None, "buzzed_player_id": str(game.buzzed_player_id) if game.buzzed_player_id else None}, "question": question_data, "players": [{"id": str(p.id), "nickname": p.nickname, "slot": p.slot, "score": p.score, "connected": p.connected, "answered": str(p.id) in {str(answered) for answered in answered_ids}} for p in players], "answers": answer_data, "buzzer_attempts": buzzer_attempts, "rankings": rankings, "is_new_record": current_best is not None and (previous_best is None or current_best > previous_best)}
+        logs = []
+        if include_admin:
+            logs = [{"message": item.message, "created_at": item.created_at.strftime("%H:%M:%S")} for item in game.logs.all()[:100]]
+        return {"game": {"id": str(game.id), "title": game.title, "status": game.status, "phase": game.phase, "seconds": game.seconds_per_question, "deadline": (game.question_started_at + timedelta(seconds=game.seconds_per_question)).isoformat() if game.question_started_at else None, "buzzed_player_id": str(game.buzzed_player_id) if game.buzzed_player_id else None}, "question": question_data, "players": [{"id": str(p.id), "nickname": p.nickname, "slot": p.slot, "score": p.score, "connected": p.connected, "answered": str(p.id) in {str(answered) for answered in answered_ids}} for p in players], "answers": answer_data, "buzzer_attempts": buzzer_attempts, "logs": logs, "rankings": rankings, "is_new_record": current_best is not None and (previous_best is None or current_best > previous_best)}

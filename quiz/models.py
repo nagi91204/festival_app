@@ -150,3 +150,19 @@ class RankingEntry(models.Model):
 
     class Meta:
         ordering = ["rank"]
+
+
+class GameLog(models.Model):
+    """司会画面で確認する、ゲーム内で起きた操作と参加者の履歴。"""
+
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name="logs")
+    player = models.ForeignKey(GamePlayer, null=True, blank=True, on_delete=models.SET_NULL, related_name="game_logs")
+    event = models.CharField(max_length=40)
+    message = models.CharField(max_length=300)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.game}: {self.message}"
