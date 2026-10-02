@@ -1,0 +1,18 @@
+{% load static %}
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}ネプリ―グ！{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'quiz/css/app.css' %}" />
+  </head>
+  <body {% block body_data %}{% endblock %}>
+    <header class="app-header">
+      <div class="header-title">{% block header_title %}文化祭クイズアプリ{% endblock %}</div>
+      <a class="brand" href="{% url 'quiz:home' %}" aria-label="テクノリーグ！ ホーム"><img src="{% static 'quiz/img/teknoleague-logo.png' %}" alt="テクノリーグ！" /></a>
+      <div class="header-action">{% block header_action %}{% endblock %}</div>
+    </header>
+    <main class="app-main">{% block content %}{% endblock %}</main>
+  </body>
+</html>

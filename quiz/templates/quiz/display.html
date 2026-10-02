@@ -1,0 +1,25 @@
+{% extends "quiz/base.html" %}
+{% load static %}
+{% block title %}大画面 | {{ game.title }}{% endblock %}
+{% block header_title %}<span id="display-header-title">文化祭クイズアプリ</span>{% endblock %}
+{% block body_data %}data-game-id="{{ game.id }}"{% endblock %}
+{% block header_action %}<span id="display-header-status">ゲーム開始まで</span>{% endblock %}
+{% block content %}
+<section class="display-shell">
+  <section id="display-lobby" class="display-lobby">
+    <p class="screen-kicker">待機画面</p><h1>まもなくスタート！</h1><p class="display-note">参加者の接続を待っています</p>
+    <div class="ranking-card"><h2>待機中ランキング TOP 3</h2><ol id="lobby-ranking" class="ranking-list"></ol></div>
+  </section>
+  <section id="display-game" class="display-game hidden">
+    <div class="display-topline"><p id="question-meta" class="question-number"></p><strong id="timer">--</strong></div>
+    <h1 id="display-question" class="display-question"></h1>
+    <img id="question-image" class="question-image hidden" alt="問題画像" />
+    <div id="display-choices" class="display-answer-grid"></div><p id="buzzed-name" class="buzzed-name"></p>
+    <section id="display-result" class="display-result hidden"><p>RESULT</p><h2 id="correct-answer"></h2><p id="explanation"></p></section>
+  </section>
+  <section id="display-finish" class="display-finish hidden"><p class="screen-kicker">FINAL RESULT</p><h1>ランキング</h1><ol id="final-ranking" class="ranking-list"></ol><p id="new-record" class="new-record">NEW RECORD!</p></section>
+  <footer id="scoreboard" class="scoreboard"></footer><audio id="display-audio"></audio>
+</section>
+<script src="{% static 'quiz/js/quiz_socket.js' %}"></script>
+<script src="{% static 'quiz/js/display.js' %}"></script>
+{% endblock %}

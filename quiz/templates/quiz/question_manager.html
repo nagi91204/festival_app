@@ -1,0 +1,21 @@
+{% extends "quiz/base.html" %}
+{% load static %}
+{% block title %}問題登録 | {{ game.title }}{% endblock %}
+{% block header_title %}問題登録・管理{% endblock %}
+{% block header_action %}<a class="header-link" href="{% url 'quiz:control' game.id %}?key={{ game.admin_token }}">司会画面へ</a>{% endblock %}
+{% block content %}
+<section class="question-manager-shell">
+  <form method="post" enctype="multipart/form-data" class="question-form-card">
+    {% csrf_token %}
+    <div><p class="screen-kicker">QUESTION MANAGER</p><h1>問題を登録する</h1><p>2択・4択、早押し、音当て問題を登録できます。</p></div>
+    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="question-form-grid">
+      {% for field in form %}
+        <label class="question-field {% if field.name in 'body explanation' %}question-field-wide{% endif %}" data-field="{{ field.name }}">{{ field.label }}{{ field }}{% if field.errors %}<span class="field-error">{{ field.errors|striptags }}</span>{% endif %}</label>
+      {% endfor %}
+    </div>
+    <button class="button button-red" type="submit">この問題を登録する</button>
+  </form>
+</section>
+<script src="{% static 'quiz/js/question_manager.js' %}"></script>
+{% endblock %}

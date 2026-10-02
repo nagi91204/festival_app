@@ -1,0 +1,25 @@
+{% extends "quiz/base.html" %}
+{% load static %}
+{% block title %}司会 | {{ game.title }}{% endblock %}
+{% block header_title %}司会・運営用コントロール{% endblock %}
+{% block body_data %}data-game-id="{{ game.id }}" data-admin-token="{{ game.admin_token }}"{% endblock %}
+{% block header_action %}<span>HOST CONTROL</span><a id="display-link" class="header-link" target="_blank" rel="noopener" href="{% url 'quiz:display' game.id %}">大画面</a>{% endblock %}
+{% block content %}
+<section class="control-shell">
+  <aside class="control-sidebar">
+    <p class="screen-kicker">現在の状態</p><h1 id="sidebar-current-status">待機中</h1><p class="player-url-label">参加者URL</p><code id="player-url"></code><a class="question-manager-link" href="{% url 'quiz:question_manager' game.id %}?key={{ game.admin_token }}">問題を登録・管理</a>
+    <div class="sidebar-actions">
+      <button id="next-button" class="button button-red">開始／次の問題</button><button id="close-button" class="button button-outline">回答を締め切る</button><button id="reveal-button" class="button button-outline">正解発表</button><button id="open-buzzer-button" class="button button-outline">早押しを開く</button><button id="audio-button" class="button button-outline">音を再生</button>
+    </div>
+  </aside>
+  <section class="control-content">
+    <section class="host-card host-question-card"><div class="host-card-heading"><span>現在の問題</span><span id="control-phase">待機中</span></div><p id="control-number" class="question-number"></p><h2 id="control-question">まだ開始していません</h2><div id="control-choices" class="control-choices"></div><p id="control-answer" class="control-answer"></p></section>
+    <section class="host-card buzzer-judge-card"><div class="host-card-heading"><span>早押し判定</span></div><p id="buzz-player">まだ誰も押していません</p><div class="judge-actions"><button id="correct-button" class="button button-red">正解 +点</button><button id="wrong-button" class="button button-outline">不正解</button></div></section>
+    <section class="host-card admin-state-card"><div class="host-card-heading"><span>全回答・早押し履歴</span></div><div id="answer-history" class="admin-history">回答はまだありません</div></section>
+  </section>
+  <aside class="control-players-panel"><h2>参加者・得点</h2><div id="control-players" class="control-players"></div><div class="host-settings"><label>制限時間（秒）<input id="seconds-input" type="number" min="5" max="120" value="{{ game.seconds_per_question }}" /></label><button id="seconds-button" class="button button-outline">時間を保存</button></div></aside>
+</section>
+<p id="control-error" class="error-message control-error"></p>
+<script src="{% static 'quiz/js/quiz_socket.js' %}"></script>
+<script src="{% static 'quiz/js/control.js' %}"></script>
+{% endblock %}

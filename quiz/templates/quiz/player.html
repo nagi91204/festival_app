@@ -1,0 +1,31 @@
+{% extends "quiz/base.html" %}
+{% load static %}
+{% block title %}参加者 | {{ game.title }}{% endblock %}
+{% block header_title %}参加者画面{% endblock %}
+{% block body_data %}data-game-id="{{ game.id }}"{% endblock %}
+{% block header_action %}<span id="player-header-status">参加受付</span>{% endblock %}
+{% block content %}
+<section class="player-shell">
+  <section id="join-panel" class="entry-card">
+    <p class="screen-kicker">参加者登録（PC）</p>
+    <h1>ニックネームを入力してください</h1>
+    <form id="join-form" class="entry-form">
+      <label class="sr-only" for="nickname">ニックネーム</label>
+      <input id="nickname" maxlength="20" placeholder="ニックネーム" autocomplete="nickname" required />
+      <button class="button button-red" type="submit">参加する</button>
+    </form>
+    <p id="join-error" class="error-message"></p>
+  </section>
+  <section id="player-panel" class="player-game hidden">
+    <p id="player-status" class="player-status">司会の開始を待っています</p>
+    <div class="player-question-wrap"><p id="player-number" class="question-number"></p><h1 id="player-question">WELCOME!</h1></div>
+    <div id="choices" class="answer-grid"></div>
+    <button id="buzz-button" class="buzz-button hidden" aria-label="早押しする"><span>PUSH</span><small>SPACEでもOK</small></button>
+    <button id="audio-play-button" class="audio-play-button hidden" aria-label="音声を再生する">▶</button>
+    <p id="player-result" class="player-result"></p>
+  </section>
+</section>
+<footer id="player-footer" class="player-footer hidden"><span id="player-name">ゲスト</span><strong id="player-score">0 pt</strong></footer>
+<script src="{% static 'quiz/js/quiz_socket.js' %}"></script>
+<script src="{% static 'quiz/js/player.js' %}"></script>
+{% endblock %}
