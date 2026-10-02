@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from .consumers import QuizConsumer
-from .models import Game, GameQuestion, Question
+from .models import Game, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry
 
 
 class QuestionValidationTests(TestCase):
@@ -68,3 +68,67 @@ class ConsumerTransitionTests(TestCase):
 
         game.refresh_from_db()
         self.assertEqual(game.phase, Game.Phase.ANSWER_CLOSED)
+
+    def test_all_connected_players_answering_starts_timed_result(self):
+        question = Question.objects.create(title="問題", body="本文", choice_1="A", choice_2="B", correct_choice=1)
+        game = Game.objects.create(status=Game.Status.RUNNING, phase=Game.Phase.QUESTION, current_index=0)
+        game_question = GameQuestion.objects.create(game=game, question=question, position=0)
+        first = GamePlayer.objects.create(game=game, nickname="一人目", slot=1, connected=True)
+        second = GamePlayer.objects.create(game=game, nickname="二人目", slot=2, connected=True)
+        PlayerAnswer.objects.create(game_question=game_question, player=first, selected_choice=1, is_correct=True)
+        PlayerAnswer.objects.create(game_question=game_question, player=second, selected_choice=2, is_correct=False)
+        consumer = QuizConsumer()
+
+        self.assertTrue(consumer.start_auto_result_if_all_answered(game, game_question))
+
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.RESULT)
+        self.assertIsNotNone(game.result_advance_at)
+
+    def test_end_game_creates_rankings_and_clears_automatic_transition(self):
+        game = Game.objects.create(status=Game.Status.RUNNING, phase=Game.Phase.RESULT, result_advance_at=timezone.now())
+        GamePlayer.objects.create(game=game, nickname="一人目", slot=1, score=20)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.end_game)()
+
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.FINISHED)
+        self.assertIsNone(game.result_advance_at)
+        self.assertEqual(RankingEntry.objects.filter(game=game).count(), 1)
+
+    def test_reset_game_returns_to_lobby_and_removes_previous_players(self):
+        game = Game.objects.create(status=Game.Status.FINISHED, phase=Game.Phase.FINISHED, current_index=0)
+        question = Question.objects.create(title="問題", body="本文", choice_1="A", choice_2="B", correct_choice=1)
+        GameQuestion.objects.create(game=game, question=question, position=0)
+        GamePlayer.objects.create(game=game, nickname="一人目", slot=1, score=20)
+        RankingEntry.objects.create(game=game, player_name="一人目", score=20, rank=1)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.reset_game)()
+
+        game.refresh_from_db()
+        self.assertEqual(game.status, Game.Status.LOBBY)
+        self.assertEqual(game.phase, Game.Phase.LOBBY)
+        self.assertEqual(game.current_index, -1)
+        self.assertFalse(game.players.exists())
+        self.assertFalse(game.game_questions.exists())
+        self.assertEqual(game.round_number, 2)
+        self.assertEqual(game.ranking_entries.count(), 1)
+
+    def test_state_includes_historical_high_scores_from_other_games(self):
+        game = Game.objects.create(round_number=2)
+        RankingEntry.objects.create(game=game, player_name="前回の王者", score=90, rank=1, round_number=1)
+        previous_game = Game.objects.create(status=Game.Status.FINISHED, phase=Game.Phase.FINISHED)
+        RankingEntry.objects.create(game=previous_game, player_name="過去の王者", score=80, rank=1)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        state = async_to_sync(consumer.get_state)(False, None)
+
+        self.assertEqual(state["past_rankings"], [
+            {"player_name": "前回の王者", "score": 90},
+            {"player_name": "過去の王者", "score": 80},
+        ])

@@ -1,11 +1,18 @@
 {% extends "quiz/base.html" %}
+{% load static %}
 {% block title %}全体ログ | {{ game.title }}{% endblock %}
 {% block header_title %}全体ログ{% endblock %}
+{% block body_data %}data-game-id="{{ game.id }}" data-admin-token="{{ game.admin_token }}"{% endblock %}
 {% block header_action %}<a class="header-link" href="{% url 'quiz:control' game.id %}?key={{ game.admin_token }}">司会画面へ</a>{% endblock %}
 {% block content %}
 <section class="logs-shell">
-  <div class="logs-card"><p class="screen-kicker">GAME ACTIVITY LOG</p><h1>{{ game.title }} の全体ログ</h1><p>参加・退出、回答、早押し、司会操作を新しい順に保存しています。</p>
-    <ol class="full-log-list">{% for log in logs %}<li><time>{{ log.created_at|date:"Y/m/d H:i:s" }}</time><span>{{ log.message }}</span></li>{% empty %}<li class="empty-list">まだログはありません。</li>{% endfor %}</ol>
+  <div class="logs-dashboard">
+    <section class="logs-card"><p class="screen-kicker">GAME ACTIVITY LOG</p><h1>{{ game.title }} の全体ログ</h1><p>参加・退出、回答、早押し、司会操作を新しい順に保存しています。</p>
+      <ol id="full-log-list" class="full-log-list">{% for log in logs %}<li data-log-id="{{ log.id }}"><time>{{ log.created_at|date:"Y/m/d H:i:s" }}</time><span>{{ log.message }}</span></li>{% empty %}<li class="empty-list">まだログはありません。</li>{% endfor %}</ol>
+    </section>
+    <aside class="logs-card logs-preview"><div class="preview-heading"><div><p class="screen-kicker">PLAYER MONITOR</p><h2>回答者画面レビュー</h2></div><label for="preview-player">表示する参加者<select id="preview-player"><option value="">回答者を選択</option></select></label></div><div id="preview-screen" class="preview-screen"><div class="preview-device-header"><strong>参加者画面</strong><span>LIVE PREVIEW</span></div><div class="preview-device-body">参加者を選ぶと、回答者画面のプレビューが表示されます。</div><div class="preview-device-footer"><span>参加者</span><strong>0 pt</strong></div></div><p class="preview-caption">参加者画面に配信されている内容をリアルタイムで表示しています。</p></aside>
   </div>
 </section>
+<script src="{% static 'quiz/js/quiz_socket.js' %}"></script>
+<script src="{% static 'quiz/js/logs.js' %}"></script>
 {% endblock %}

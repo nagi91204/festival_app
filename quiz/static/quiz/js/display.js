@@ -1,33 +1,40 @@
 const gameId = document.body.dataset.gameId;
 let state = null;
+let previousScores = new Map();
 const audio = document.querySelector("#display-audio");
 const quiz = createQuizSocket(gameId, render, (event) => { if (event.type === "play_audio" && state?.question?.audio_url) { audio.src = state.question.audio_url; audio.currentTime = 0; audio.play().catch(() => {}); } });
 function rankingHtml(players) { return players.slice(0, 3).map((p, index) => `<li>${index + 1}位　${escapeHtml(p.nickname || p.player_name)} <strong>${p.score} pt</strong></li>`).join("") || "<li>参加者を待っています</li>"; }
+function historicalRankingHtml(entries) { return entries.map((entry, index) => `<li><span>${index + 1}位　${escapeHtml(entry.player_name)}</span><strong>${entry.score} pt</strong></li>`).join("") || "<li>最初の記録を作ろう！</li>"; }
 function render(nextState) {
-  state = nextState; const { game, question, players, rankings } = state;
-  document.querySelector("#display-header-title").textContent = game.phase === "lobby" ? "文化祭クイズアプリ" : question?.type === "audio" ? "音当て問題" : ["buzzer_open", "buzzer_locked"].includes(game.phase) ? "早押し問題" : "2択・4択問題";
-  document.querySelector("#display-header-status").textContent = game.phase === "lobby" ? "ゲーム開始まで" : game.phase === "finished" ? "FINAL RESULT" : "残り時間";
+  state = nextState; const { game, question, players, rankings, past_rankings: pastRankings = [] } = state;
+  document.querySelector("#display-header-title").textContent = game.phase === "lobby" ? "文化祭クイズアプリ" : game.phase === "intro" ? "NEXT QUESTION" : question?.type === "audio" ? "音当て問題" : ["buzzer_open", "buzzer_locked"].includes(game.phase) ? "早押し問題" : "2択・4択問題";
+  const isFinalOvertime = game.phase !== "finished" && question && game.deadline && Date.now() >= new Date(game.deadline).getTime();
+  document.querySelector("#display-header-status").textContent = game.phase === "lobby" ? "ゲーム開始まで" : game.phase === "finished" ? "FINAL RESULT" : isFinalOvertime ? "この問題が最終問題です" : "ゲーム終了まで";
   document.querySelector("#display-lobby").classList.toggle("hidden", game.phase !== "lobby");
   document.querySelector("#display-game").classList.toggle("hidden", ["lobby", "finished"].includes(game.phase));
   document.querySelector("#display-finish").classList.toggle("hidden", game.phase !== "finished");
-  document.querySelector("#lobby-ranking").innerHTML = rankingHtml(players);
-  document.querySelector("#scoreboard").innerHTML = players.map((p) => `<span class="score-chip">${escapeHtml(p.nickname)} ${p.score}pt</span>`).join("");
+  document.querySelector("#lobby-ranking").innerHTML = historicalRankingHtml(pastRankings);
+  document.querySelector("#ranking-challenge").textContent = pastRankings.length ? `歴代最高 ${pastRankings[0].score} pt を超えよう！` : "次の記録を作るのは、あなたたちだ！";
+  document.querySelector("#scoreboard").innerHTML = players.map((p) => {
+    const previous = previousScores.get(p.id); const gain = previous !== undefined && p.score > previous ? `<em class="score-gain">+${p.score - previous} pt!</em>` : "";
+    return `<span class="score-chip">${escapeHtml(p.nickname)} ${p.score}pt${gain}</span>`;
+  }).join("");
+  previousScores = new Map(players.map((p) => [p.id, p.score]));
   if (game.phase === "finished") {
     document.querySelector("#final-ranking").innerHTML = (rankings.length ? rankings : players.map((p, i) => ({ ...p, rank:i + 1 }))).map((p) => `<li>${p.rank}位　${escapeHtml(p.player_name || p.nickname)} <strong>${p.score} pt</strong></li>`).join("");
     document.querySelector("#new-record").classList.toggle("hidden", !state.is_new_record); return;
   }
   if (!question) return;
   document.querySelector("#question-meta").textContent = `QUESTION ${question.number} / ${question.total}　${question.category || ""}`;
-  document.querySelector("#display-question").textContent = question.body;
-  const image = document.querySelector("#question-image"); image.src = question.image_url || ""; image.classList.toggle("hidden", !question.image_url);
-  document.querySelector("#display-choices").innerHTML = question.type === "choice" ? question.choices.map((text, i) => `<div class="display-choice">${i + 1}. ${escapeHtml(text)}</div>`).join("") : "";
-  const buzzed = players.find((p) => p.id === game.buzzed_player_id); document.querySelector("#buzzed-name").textContent = buzzed ? `${buzzed.nickname} さんが早押し！` : "";
+  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題" })[question.type] || "クイズ";
+  document.querySelector("#display-question").textContent = game.phase === "intro" ? `次は「${typeName}」！` : question.body;
+  const image = document.querySelector("#question-image"); image.src = question.image_url || ""; image.classList.toggle("hidden", !question.image_url || game.phase === "intro");
+  document.querySelector("#display-choices").innerHTML = question.type === "choice" && game.phase !== "intro" ? question.choices.map((text, i) => `<div class="display-choice ${game.phase === "result" && question.correct_choice === i + 1 ? "display-choice-correct" : ""}">${i + 1}. ${escapeHtml(text)}</div>`).join("") : "";
+  const buzzed = players.find((p) => p.id === game.buzzed_player_id); document.querySelector("#buzzed-name").textContent = buzzed ? `${buzzed.nickname} さんが早押し！` : game.phase === "intro" ? "まもなく問題スタート！" : "";
   const result = document.querySelector("#display-result"); result.classList.toggle("hidden", game.phase !== "result");
   document.querySelector("#correct-answer").textContent = game.phase === "result" ? `正解：${question.correct_text || ""}` : "";
   document.querySelector("#explanation").textContent = question.explanation || "";
 }
-setInterval(() => { const deadline = state?.game.deadline; document.querySelector("#timer").textContent = deadline && ["question", "buzzer_open", "buzzer_locked"].includes(state.game.phase) ? `${Math.max(0, Math.ceil((new Date(deadline) - Date.now()) / 1000))}` : "--"; }, 200);
-setInterval(() => {
-  const deadline = state?.game.deadline;
-  if (deadline && ["question", "buzzer_open", "buzzer_locked"].includes(state.game.phase) && new Date(deadline) <= new Date()) quiz.send("expire_question");
-}, 500);
+function formatTimer(seconds) { return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; }
+setInterval(() => { const deadline = state?.game.deadline; document.querySelector("#timer").textContent = deadline && state.game.status === "running" ? formatTimer(Math.max(0, Math.ceil((new Date(deadline) - Date.now()) / 1000))) : "--"; }, 200);
+setInterval(() => quiz.send("tick"), 1000);

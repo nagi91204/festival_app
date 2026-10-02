@@ -57,6 +57,7 @@ class Game(models.Model):
 
     class Phase(models.TextChoices):
         LOBBY = "lobby", "待機"
+        INTRO = "intro", "問題紹介"
         QUESTION = "question", "問題・回答中"
         ANSWER_CLOSED = "answer_closed", "回答締切"
         BUZZER_OPEN = "buzzer_open", "早押し受付中"
@@ -70,10 +71,15 @@ class Game(models.Model):
     max_players = models.PositiveSmallIntegerField(default=5)
     question_count = models.PositiveSmallIntegerField(default=10)
     seconds_per_question = models.PositiveSmallIntegerField(default=20)
+    total_seconds = models.PositiveIntegerField(default=300)
+    round_number = models.PositiveIntegerField(default=1)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.LOBBY)
     phase = models.CharField(max_length=20, choices=Phase.choices, default=Phase.LOBBY)
     current_index = models.IntegerField(default=-1)
     question_started_at = models.DateTimeField(null=True, blank=True)
+    game_started_at = models.DateTimeField(null=True, blank=True)
+    question_open_at = models.DateTimeField(null=True, blank=True)
+    result_advance_at = models.DateTimeField(null=True, blank=True)
     buzzed_player = models.ForeignKey("GamePlayer", null=True, blank=True, on_delete=models.SET_NULL, related_name="current_buzz_games")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -146,6 +152,7 @@ class RankingEntry(models.Model):
     player_name = models.CharField(max_length=20)
     score = models.IntegerField()
     rank = models.PositiveSmallIntegerField()
+    round_number = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

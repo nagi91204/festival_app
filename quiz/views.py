@@ -18,10 +18,11 @@ def new_game(request):
     title = request.POST.get("title", "文化祭クイズ").strip()[:100] or "文化祭クイズ"
     try:
         question_count = max(1, min(int(request.POST.get("question_count", 10)), 100))
-        seconds = max(5, min(int(request.POST.get("seconds", 20)), 120))
+        minutes = max(1, min(int(request.POST.get("minutes", request.POST.get("seconds", 5))), 120))
+        legacy_seconds = max(5, min(int(request.POST.get("seconds", minutes * 60)), 120))
     except (TypeError, ValueError):
-        question_count, seconds = 10, 20
-    game = Game.objects.create(title=title, question_count=question_count, seconds_per_question=seconds)
+        question_count, minutes, legacy_seconds = 10, 5, 120
+    game = Game.objects.create(title=title, question_count=question_count, seconds_per_question=legacy_seconds, total_seconds=minutes * 60)
     GameLog.objects.create(game=game, event="game_created", message="ゲームを作成しました。")
     return redirect(f"{reverse('quiz:control', kwargs={'game_id': game.id})}?key={game.admin_token}")
 
@@ -32,7 +33,7 @@ def game_or_404(game_id):
 
 def control(request, game_id):
     game = admin_game_or_404(request, game_id)
-    return render(request, "quiz/control.html", {"game": game})
+    return render(request, "quiz/control.html", {"game": game, "game_minutes": max(1, game.total_seconds // 60), "player_url": request.build_absolute_uri(reverse("quiz:player", kwargs={"game_id": game.id}))})
 
 
 def display(request, game_id):

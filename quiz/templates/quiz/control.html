@@ -2,25 +2,25 @@
 {% load static %}
 {% block title %}司会 | {{ game.title }}{% endblock %}
 {% block header_title %}司会・運営用コントロール{% endblock %}
-{% block body_data %}data-game-id="{{ game.id }}" data-admin-token="{{ game.admin_token }}"{% endblock %}
+{% block body_data %}data-game-id="{{ game.id }}" data-admin-token="{{ game.admin_token }}" data-player-url="{{ player_url }}"{% endblock %}
 {% block header_action %}<span>HOST CONTROL</span><a id="display-link" class="header-link" target="_blank" rel="noopener" href="{% url 'quiz:display' game.id %}">大画面</a>{% endblock %}
 {% block content %}
 <section class="control-shell">
   <aside class="control-sidebar">
     <p class="screen-kicker">現在の状態</p><h1 id="sidebar-current-status">待機中</h1>
-    <div class="player-url-box"><p>参加者画面</p><a id="player-link" target="_blank" rel="noopener" href="{% url 'quiz:player' game.id %}">回答者画面を開く ↗</a><code id="player-url"></code><button id="copy-player-url" class="copy-url" type="button">URLをコピー</button></div>
+    <div class="player-url-box"><p>参加者画面（共有するURL）</p><a id="player-link" target="_blank" rel="noopener" href="{{ player_url }}">回答者画面を開く ↗</a><code id="player-url">{{ player_url }}</code><button id="copy-player-url" class="copy-url" type="button">URLをコピー</button></div>
     <a class="question-manager-link" href="{% url 'quiz:question_manager' game.id %}?key={{ game.admin_token }}">問題を登録・管理</a><a class="question-manager-link" href="{% url 'quiz:game_logs' game.id %}?key={{ game.admin_token }}">全体ログを開く</a>
     <div class="sidebar-actions">
-      <button id="next-button" class="button button-red">開始／次の問題</button><button id="close-button" class="button button-outline">回答を締め切る</button><button id="reveal-button" class="button button-outline">正解発表</button><button id="open-buzzer-button" class="button button-outline">早押しを開く</button><button id="audio-button" class="button button-outline">音を再生</button>
+      <button id="progress-button" class="button button-red">ゲームを開始する</button><button id="close-button" class="button button-outline">回答を締め切る</button><button id="audio-button" class="button button-outline">音を再生</button><button id="end-game-button" class="button button-outline danger-button">ゲームを終了する</button><button id="reset-game-button" class="button button-red hidden">次のゲームを準備する</button>
     </div>
+    <p id="game-finished-note" class="game-finished-note hidden">ゲームは終了しました。<br />リセットすると次のゲームを開始できます。</p>
   </aside>
   <section class="control-content">
     <section class="host-card host-question-card"><div class="host-card-heading"><span>現在の問題</span><span id="control-phase">待機中</span></div><p id="control-number" class="question-number"></p><h2 id="control-question">まだ開始していません</h2><div id="control-choices" class="control-choices"></div><p id="control-answer" class="control-answer"></p></section>
-    <section class="host-card buzzer-judge-card"><div class="host-card-heading"><span>早押し判定</span></div><p id="buzz-player">まだ誰も押していません</p><div class="judge-actions"><button id="correct-button" class="button button-red">正解 +点</button><button id="wrong-button" class="button button-outline">不正解</button></div></section>
+    <section id="buzzer-judge-card" class="host-card buzzer-judge-card hidden"><div class="host-card-heading"><span>早押し判定</span></div><p id="buzz-player">まだ誰も押していません</p><div class="judge-actions"><button id="correct-button" class="button button-red">正解 +点</button><button id="wrong-button" class="button button-outline">不正解</button></div></section>
     <section class="host-card admin-state-card"><div class="host-card-heading"><span>今回の回答・早押し</span></div><div id="answer-history" class="admin-history">回答はまだありません</div></section>
-    <section class="host-card admin-state-card"><div class="host-card-heading"><span>全体ログ（最新100件）</span><a class="small-link" href="{% url 'quiz:game_logs' game.id %}?key={{ game.admin_token }}">すべて見る</a></div><div id="game-log" class="admin-history">まだログはありません</div></section>
   </section>
-  <aside class="control-players-panel"><h2>参加者・得点</h2><div id="control-players" class="control-players"></div><section class="player-preview"><div class="host-card-heading"><span>回答者画面プレビュー</span></div><select id="preview-player"><option value="">回答者を選択</option></select><div id="preview-screen" class="preview-screen">参加者を選ぶと、その人に配信中の画面と回答状況を確認できます。</div><p>※実際のPCを遠隔操作・画面共有する機能ではなく、アプリ上の表示を確認するプレビューです。</p></section><div class="host-settings"><label>制限時間（秒）<input id="seconds-input" type="number" min="5" max="120" value="{{ game.seconds_per_question }}" /></label><button id="seconds-button" class="button button-outline">時間を保存</button></div></aside>
+  <aside class="control-players-panel"><h2>参加者・得点</h2><div id="control-players" class="control-players"></div><div id="host-settings" class="host-settings"><label>ゲーム時間（分）<input id="minutes-input" type="number" min="1" max="120" value="{{ game_minutes }}" /></label><button id="minutes-button" class="button button-outline">時間を保存</button></div></aside>
 </section>
 <p id="control-error" class="error-message control-error"></p>
 <script src="{% static 'quiz/js/quiz_socket.js' %}"></script>
