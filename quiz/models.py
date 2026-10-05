@@ -12,9 +12,15 @@ class Question(models.Model):
         BUZZER = "buzzer", "早押し"
         AUDIO = "audio", "音当て"
 
+    class Difficulty(models.TextChoices):
+        EASY = "easy", "簡単"
+        NORMAL = "normal", "普通"
+        HARD = "hard", "ハード"
+
     title = models.CharField("管理用タイトル", max_length=100)
     question_type = models.CharField("問題形式", max_length=10, choices=QuestionType.choices, default=QuestionType.CHOICE)
     category = models.CharField("カテゴリ", max_length=50, blank=True)
+    difficulty = models.CharField("難易度", max_length=10, choices=Difficulty.choices, default=Difficulty.NORMAL)
     body = models.TextField("問題文")
     choice_1 = models.CharField("選択肢1", max_length=200, blank=True)
     choice_2 = models.CharField("選択肢2", max_length=200, blank=True)
@@ -72,6 +78,8 @@ class Game(models.Model):
     question_count = models.PositiveSmallIntegerField(default=10)
     seconds_per_question = models.PositiveSmallIntegerField(default=20)
     total_seconds = models.PositiveIntegerField(default=300)
+    difficulty = models.CharField(max_length=10, choices=Question.Difficulty.choices, default=Question.Difficulty.NORMAL)
+    selected_categories = models.JSONField(default=list, blank=True)
     round_number = models.PositiveIntegerField(default=1)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.LOBBY)
     phase = models.CharField(max_length=20, choices=Phase.choices, default=Phase.LOBBY)

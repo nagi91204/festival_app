@@ -454,15 +454,18 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     def create_random_questions(self, game):
         if game.game_questions.exists():
             return
+        eligible = Question.objects.filter(is_active=True, difficulty=game.difficulty)
+        if game.selected_categories:
+            eligible = eligible.filter(category__in=game.selected_categories)
         choice_count = (game.question_count + 1) // 2
         buzzer_count = game.question_count - choice_count
-        choice_questions = list(Question.objects.filter(is_active=True, question_type=Question.QuestionType.CHOICE).order_by("?")[:choice_count])
-        buzzer_questions = list(Question.objects.filter(is_active=True, question_type__in=[Question.QuestionType.BUZZER, Question.QuestionType.AUDIO]).order_by("?")[:buzzer_count])
+        choice_questions = list(eligible.filter(question_type=Question.QuestionType.CHOICE).order_by("?")[:choice_count])
+        buzzer_questions = list(eligible.filter(question_type__in=[Question.QuestionType.BUZZER, Question.QuestionType.AUDIO]).order_by("?")[:buzzer_count])
         candidates = choice_questions + buzzer_questions
         # 片方の形式が不足していても、重複なしで可能な限り設定された出題数を満たす。
         if len(candidates) < game.question_count:
             used_ids = [question.id for question in candidates]
-            candidates.extend(Question.objects.filter(is_active=True).exclude(id__in=used_ids).order_by("?")[: game.question_count - len(candidates)])
+            candidates.extend(eligible.exclude(id__in=used_ids).order_by("?")[: game.question_count - len(candidates)])
         if not candidates:
             raise ValueError("Adminで有効な問題を1問以上登録してください。")
         random.shuffle(candidates)

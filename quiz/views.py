@@ -10,7 +10,10 @@ from .forms import QuestionForm
 
 
 def home(request):
-    return render(request, "quiz/home.html")
+    active_questions = Question.objects.filter(is_active=True)
+    categories = list(active_questions.exclude(category="").order_by("category").values_list("category", flat=True).distinct())
+    question_stats = list(active_questions.values("difficulty", "category").annotate(count=Count("id")))
+    return render(request, "quiz/home.html", {"categories": categories, "difficulties": Question.Difficulty.choices, "question_stats": question_stats})
 
 
 @require_POST
@@ -22,8 +25,13 @@ def new_game(request):
         legacy_seconds = max(5, min(int(request.POST.get("seconds", minutes * 60)), 120))
     except (TypeError, ValueError):
         question_count, minutes, legacy_seconds = 10, 5, 120
-    game = Game.objects.create(title=title, question_count=question_count, seconds_per_question=legacy_seconds, total_seconds=minutes * 60)
-    GameLog.objects.create(game=game, event="game_created", message="ゲームを作成しました。")
+    difficulty = request.POST.get("difficulty", Question.Difficulty.NORMAL)
+    if difficulty not in Question.Difficulty.values:
+        difficulty = Question.Difficulty.NORMAL
+    selected_categories = [category for category in request.POST.getlist("categories") if category in Question.objects.filter(is_active=True).values_list("category", flat=True)]
+    game = Game.objects.create(title=title, question_count=question_count, seconds_per_question=legacy_seconds, total_seconds=minutes * 60, difficulty=difficulty, selected_categories=selected_categories)
+    category_label = "・".join(selected_categories) if selected_categories else "全カテゴリ"
+    GameLog.objects.create(game=game, event="game_created", message=f"ゲームを作成しました（難易度：{game.get_difficulty_display()}、カテゴリ：{category_label}）。")
     return redirect(f"{reverse('quiz:control', kwargs={'game_id': game.id})}?key={game.admin_token}")
 
 

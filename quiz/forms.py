@@ -7,13 +7,13 @@ class QuestionForm(forms.ModelForm):
     class Meta:
         model = Question
         fields = (
-            "title", "question_type", "category", "body",
+            "title", "question_type", "category", "difficulty", "body",
             "choice_1", "choice_2", "choice_3", "choice_4", "correct_choice",
             "correct_text", "explanation", "image", "audio_file", "points", "is_active",
         )
         widgets = {
             "title": forms.TextInput(attrs={"placeholder": "例：日本の首都"}),
-            "category": forms.TextInput(attrs={"placeholder": "例：一般常識"}),
+            "category": forms.TextInput(attrs={"placeholder": "例：アニメ、音楽、この声のキャラクターは？"}),
             "body": forms.Textarea(attrs={"rows": 4, "placeholder": "例：日本の首都はどこでしょう？"}),
             "choice_1": forms.TextInput(attrs={"placeholder": "例：東京"}),
             "choice_2": forms.TextInput(attrs={"placeholder": "例：大阪"}),
