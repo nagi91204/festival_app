@@ -2,6 +2,46 @@ const gameId = document.body.dataset.gameId;
 let state = null;
 let previousScores = new Map();
 const audio = document.querySelector("#display-audio");
+const fullscreenToggle = document.querySelector("#display-fullscreen-toggle");
+
+function isFullscreen() {
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function updateFullscreenToggle() {
+  const active = isFullscreen();
+  fullscreenToggle.textContent = active ? "全画面を終了" : "全画面表示";
+  fullscreenToggle.setAttribute("aria-pressed", String(active));
+}
+
+async function enterFullscreen() {
+  const target = document.documentElement;
+  try {
+    if (target.requestFullscreen) await target.requestFullscreen();
+    else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen();
+  } catch (_) {
+    // Browsers only allow this from a user gesture; the toggle remains available.
+  }
+  updateFullscreenToggle();
+}
+
+async function toggleFullscreen() {
+  try {
+    if (isFullscreen()) {
+      if (document.exitFullscreen) await document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    } else {
+      await enterFullscreen();
+    }
+  } finally {
+    updateFullscreenToggle();
+  }
+}
+
+fullscreenToggle.addEventListener("click", toggleFullscreen);
+document.addEventListener("fullscreenchange", updateFullscreenToggle);
+document.addEventListener("webkitfullscreenchange", updateFullscreenToggle);
+updateFullscreenToggle();
 const quiz = createQuizSocket(gameId, render, (event) => { if (event.type === "play_audio" && state?.question?.audio_url) { audio.src = state.question.audio_url; audio.currentTime = 0; audio.play().catch(() => {}); } });
 function rankingHtml(players) { return players.slice(0, 3).map((p, index) => `<li>${index + 1}位　${escapeHtml(p.nickname || p.player_name)} <strong>${p.score} pt</strong></li>`).join("") || "<li>参加者を待っています</li>"; }
 function historicalRankingHtml(entries) { return entries.map((entry, index) => `<li><span>${index + 1}位　${escapeHtml(entry.player_name)}</span><strong>${entry.score} pt</strong></li>`).join("") || "<li>最初の記録を作ろう！</li>"; }
