@@ -2,10 +2,11 @@
 {% load static %}
 {% block title %}大画面 | {{ game.title }}{% endblock %}
 {% block header_title %}<span id="display-header-title">文化祭クイズアプリ</span>{% endblock %}
-{% block body_data %}data-game-id="{{ game.id }}"{% endblock %}
+{% block body_data %}class="display-page" data-game-id="{{ game.id }}"{% endblock %}
 {% block header_action %}<span id="display-header-status">ゲーム開始まで</span>{% endblock %}
 {% block content %}
 <section class="display-shell">
+  <button id="display-fullscreen-toggle" class="display-fullscreen-toggle" type="button" aria-pressed="false">全画面表示</button>
   <section id="display-lobby" class="display-lobby">
     <p class="screen-kicker">HALL OF FAME</p><h1>歴代ランキング</h1><p id="ranking-challenge" class="display-note">次の記録を作るのは、あなたたちだ！</p>
     <div class="ranking-card ranking-card-history"><h2>歴代ハイスコア TOP 5</h2><ol id="lobby-ranking" class="ranking-list"></ol></div>
