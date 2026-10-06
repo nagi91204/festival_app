@@ -37,6 +37,13 @@ DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() in {"1", "true", "yes", "on"}
 ALLOWED_HOSTS = [host.strip() for host in os.getenv(
     "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
 
+# HTTPS で公開する ngrok のランダムなサブドメインからのフォーム POST を許可する。
+# 本番の固定ドメインを使う場合は、DJANGO_CSRF_TRUSTED_ORIGINS でその URL のみに絞る。
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    "https://*.ngrok-free.app,https://*.ngrok-free.dev,https://*.ngrok.app",
+).split(",") if origin.strip()]
+
 
 # Application definition
 

@@ -35,10 +35,26 @@ class GameViewsTests(TestCase):
         self.assertEqual(self.client.get(f"/control/{game.id}/questions/").status_code, 404)
         response = self.client.post(url, {
             "title": "首都", "question_type": Question.QuestionType.CHOICE, "body": "日本の首都は？",
-            "choice_1": "東京", "choice_2": "大阪", "correct_choice": 1, "points": 20, "is_active": "on",
+            "choice_1": "東京", "choice_2": "大阪", "correct_choice": 1, "difficulty": Question.Difficulty.NORMAL,
+            "points": 20, "is_active": "on",
         })
         self.assertRedirects(response, url)
         self.assertTrue(Question.objects.filter(title="首都", points=20).exists())
+
+    def test_lobby_game_mode_can_be_changed_from_its_own_page(self):
+        Question.objects.create(
+            title="やさしいアニメ", body="本文", choice_1="A", choice_2="B", correct_choice=1,
+            difficulty=Question.Difficulty.EASY, category="アニメ",
+        )
+        game = Game.objects.create(difficulty=Question.Difficulty.NORMAL)
+        url = f"/control/{game.id}/mode/?key={game.admin_token}"
+
+        response = self.client.post(url, {"difficulty": Question.Difficulty.EASY, "categories": ["アニメ"]})
+
+        self.assertRedirects(response, f"/control/{game.id}/?key={game.admin_token}")
+        game.refresh_from_db()
+        self.assertEqual(game.difficulty, Question.Difficulty.EASY)
+        self.assertEqual(game.selected_categories, ["アニメ"])
 
 
 class ConsumerTransitionTests(TestCase):

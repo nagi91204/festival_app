@@ -49,6 +49,7 @@ function render(nextState) {
   document.querySelector("#game-finished-note").classList.toggle("hidden", !isFinished);
   document.querySelector("#buzzer-judge-card").classList.toggle("hidden", game.phase !== "buzzer_locked" || !game.buzzed_player_id);
   document.querySelector("#host-settings").classList.toggle("hidden", game.phase !== "lobby");
+  document.querySelector("#edit-mode-link").classList.toggle("hidden", game.phase !== "lobby");
   const buzzed = players.find((p) => p.id === game.buzzed_player_id); document.querySelector("#buzz-player").textContent = buzzed ? `${buzzed.nickname} さんの口頭回答を判定してください` : "まだ誰も押していません";
   document.querySelector("#control-players").innerHTML = players.map((p) => `<div class="control-player"><span>${escapeHtml(p.nickname)} ${p.connected ? "●" : "○"}</span><strong>${p.score}pt</strong><button class="button button-red score-adjust" data-id="${p.id}" data-delta="10" ${isFinished ? "disabled" : ""}>+10</button><button class="button button-outline score-adjust" data-id="${p.id}" data-delta="-10" ${isFinished ? "disabled" : ""}>-10</button></div>`).join("") || "参加者を待っています";
   document.querySelectorAll(".score-adjust").forEach((button) => button.onclick = () => quiz.send("adjust_score", { player_id:button.dataset.id, delta:button.dataset.delta }));
