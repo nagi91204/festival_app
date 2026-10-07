@@ -7,6 +7,7 @@
 {% block content %}
 <section class="player-shell">
   <section id="join-panel" class="entry-card">
+    <button id="display-fullscreen-toggle" class="display-fullscreen-toggle" type="button" aria-pressed="false">全画面表示</button>
     <p class="screen-kicker">参加者登録（PC）</p>
     <h1>ニックネームを入力してください</h1>
     <form id="join-form" class="entry-form">
@@ -32,4 +33,5 @@
 <footer id="player-footer" class="player-footer hidden"><span id="player-name">ゲスト</span><strong><span id="player-score">0 pt</span><em id="player-score-gain" class="score-gain hidden"></em></strong></footer>
 <script src="{% static 'quiz/js/quiz_socket.js' %}"></script>
 <script src="{% static 'quiz/js/player.js' %}"></script>
+<script src="{% static 'quiz/js/fullscreen.js' %}"></script>
 {% endblock %}
