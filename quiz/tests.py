@@ -35,10 +35,18 @@ class GameViewsTests(TestCase):
         self.assertEqual(self.client.get(f"/control/{game.id}/questions/").status_code, 404)
         response = self.client.post(url, {
             "title": "首都", "question_type": Question.QuestionType.CHOICE, "body": "日本の首都は？",
-            "choice_1": "東京", "choice_2": "大阪", "correct_choice": 1, "points": 20, "is_active": "on",
+            "choice_1": "東京", "choice_2": "大阪", "correct_choice": 1, "points": 20, "difficulty": Question.Difficulty.NORMAL, "is_active": "on",
         })
         self.assertRedirects(response, url)
         self.assertTrue(Question.objects.filter(title="首都", points=20).exists())
+
+    def test_ranking_page_is_available_for_a_game(self):
+        game = Game.objects.create(title="順位テスト")
+
+        response = self.client.get(f"/ranking/{game.id}/")
+
+        self.assertContains(response, "プレイヤーランキング")
+        self.assertContains(response, f'data-game-id="{game.id}"')
 
 
 class ConsumerTransitionTests(TestCase):

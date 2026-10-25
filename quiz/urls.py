@@ -12,5 +12,6 @@ urlpatterns = [
     path("control/<uuid:game_id>/questions/<int:question_id>/delete/", views.question_delete, name="question_delete"),
     path("control/<uuid:game_id>/logs/", views.game_logs, name="game_logs"),
     path("display/<uuid:game_id>/", views.display, name="display"),
+    path("ranking/<uuid:game_id>/", views.ranking, name="ranking"),
     path("player/<uuid:game_id>/", views.player, name="player"),
 ]

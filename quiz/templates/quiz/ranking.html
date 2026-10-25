@@ -1,0 +1,19 @@
+{% extends "quiz/base.html" %}
+{% load static %}
+{% block title %}ランキング | {{ game.title }}{% endblock %}
+{% block header_title %}プレイヤーランキング{% endblock %}
+{% block body_data %}class="display-page" data-game-id="{{ game.id }}"{% endblock %}
+{% block header_action %}<span id="ranking-status">リアルタイム更新</span>{% endblock %}
+{% block content %}
+<section class="display-shell" aria-live="polite">
+  <button id="ranking-fullscreen-toggle" class="display-fullscreen-toggle" type="button" aria-pressed="false">全画面表示</button>
+  <section class="display-finish">
+    <p class="screen-kicker">{{ game.title }}</p>
+    <h1 id="ranking-title">全体ランキング TOP 5</h1>
+    <p id="ranking-note" class="display-note">まだランキング記録がありません</p>
+    <ol id="live-ranking-list" class="ranking-list"></ol>
+  </section>
+</section>
+<script src="{% static 'quiz/js/quiz_socket.js' %}"></script>
+<script src="{% static 'quiz/js/ranking.js' %}"></script>
+{% endblock %}
