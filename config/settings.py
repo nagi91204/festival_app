@@ -20,10 +20,6 @@ def load_dotenv(path):
 
 load_dotenv(BASE_DIR / ".env")
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://ether-flogging-attire.ngrok-free.dev',
-]
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 

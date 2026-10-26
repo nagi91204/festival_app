@@ -1,7 +1,8 @@
 :root { --red:#df0011; --ink:#171717; --paper:#faf7f7; --white:#fff; --gray:#8c8c8c; --line:#b3b3b3; }
 * { box-sizing:border-box; }
 html { background:var(--paper); }
-body { min-width:320px; margin:0; color:var(--ink); background:var(--paper); font-family:Inter,"Noto Sans JP",Arial,sans-serif; font-weight:400; }
+/* 太字でも文字がつぶれにくい游ゴシックを優先し、存在しない極太ウェイトの擬似生成を避ける。 */
+body { min-width:320px; margin:0; color:var(--ink); background:var(--paper); font-family:"Yu Gothic","YuGothic","Hiragino Sans",Meiryo,sans-serif; font-weight:400; font-synthesis:none; }
 button,input { font:inherit; } button { cursor:pointer; } a { color:inherit; } h1,h2,p { overflow-wrap:anywhere; }.hidden { display:none !important; }.sr-only { position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap; }
 .app-header { height:88px; position:relative; display:flex; align-items:center; justify-content:space-between; padding:0 42px; background:var(--red); color:var(--white); }
 .header-title,.header-action { flex:1 1 0; z-index:1; font-size:clamp(15px,2.35vw,30px); font-weight:800; }.header-action { display:flex; align-items:center; justify-content:flex-end; gap:14px; font-size:clamp(13px,1.72vw,22px); }.brand { position:absolute; z-index:2; left:50%; top:7px; width:182px; height:69px; transform:translateX(-50%); }.brand img { display:block; width:100%; height:100%; object-fit:contain; }.header-link { padding:7px 10px; border:1px solid #fff; border-radius:6px; color:#fff; font-size:12px; text-decoration:none; }.app-main { min-height:calc(100vh - 88px); }
