@@ -88,6 +88,10 @@ def display(request, game_id):
     return render(request, "quiz/display.html", {"game": game_or_404(game_id)})
 
 
+def ranking(request, game_id):
+    return render(request, "quiz/ranking.html", {"game": game_or_404(game_id)})
+
+
 def player(request, game_id):
     return render(request, "quiz/player.html", {"game": game_or_404(game_id)})
 

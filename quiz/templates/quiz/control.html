@@ -3,7 +3,7 @@
 {% block title %}司会 | {{ game.title }}{% endblock %}
 {% block header_title %}司会・運営用コントロール{% endblock %}
 {% block body_data %}data-game-id="{{ game.id }}" data-admin-token="{{ game.admin_token }}" data-player-url="{{ player_url }}"{% endblock %}
-{% block header_action %}<span>HOST CONTROL</span><a id="display-link" class="header-link" target="_blank" rel="noopener" href="{% url 'quiz:display' game.id %}">大画面</a>{% endblock %}
+{% block header_action %}<span>HOST CONTROL</span><a id="ranking-link" class="header-link" target="_blank" rel="noopener" href="{% url 'quiz:ranking' game.id %}">ランキング</a><a id="display-link" class="header-link" target="_blank" rel="noopener" href="{% url 'quiz:display' game.id %}">大画面</a>{% endblock %}
 {% block content %}
 <section class="control-shell">
   <aside class="control-sidebar">

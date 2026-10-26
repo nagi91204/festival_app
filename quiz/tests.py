@@ -41,6 +41,13 @@ class GameViewsTests(TestCase):
         self.assertRedirects(response, url)
         self.assertTrue(Question.objects.filter(title="首都", points=20).exists())
 
+    def test_ranking_page_is_available_for_a_game(self):
+        game = Game.objects.create(title="順位テスト")
+
+        response = self.client.get(f"/ranking/{game.id}/")
+
+        self.assertContains(response, "プレイヤーランキング")
+        self.assertContains(response, f'data-game-id="{game.id}"')
     def test_lobby_game_mode_can_be_changed_from_its_own_page(self):
         Question.objects.create(
             title="やさしいアニメ", body="本文", choice_1="A", choice_2="B", correct_choice=1,
