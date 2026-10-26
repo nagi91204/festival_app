@@ -44,6 +44,46 @@ def control(request, game_id):
     return render(request, "quiz/control.html", {"game": game, "game_minutes": max(1, game.total_seconds // 60), "player_url": request.build_absolute_uri(reverse("quiz:player", kwargs={"game_id": game.id}))})
 
 
+def edit_game_mode(request, game_id):
+    """参加受付中のゲームだけ、最初の設定画面と同じ見た目で出題条件を変更する。"""
+    game = admin_game_or_404(request, game_id)
+    if game.status != Game.Status.LOBBY or game.phase != Game.Phase.LOBBY:
+        raise Http404("ゲームモードは参加受付中にだけ変更できます。")
+
+    active_questions = Question.objects.filter(is_active=True)
+    categories = list(
+        active_questions.exclude(category="").order_by("category")
+        .values_list("category", flat=True).distinct()
+    )
+    error = ""
+    if request.method == "POST":
+        difficulty = request.POST.get("difficulty", Question.Difficulty.NORMAL)
+        selected_categories = list(dict.fromkeys(
+            category for category in request.POST.getlist("categories") if category in categories
+        ))
+        eligible = active_questions.filter(difficulty=difficulty)
+        if difficulty not in Question.Difficulty.values:
+            error = "難易度が正しくありません。"
+        elif selected_categories:
+            eligible = eligible.filter(category__in=selected_categories)
+        if not error and not eligible.exists():
+            error = "その難易度・カテゴリに一致する有効な問題がありません。"
+        if not error:
+            game.difficulty = difficulty
+            game.selected_categories = selected_categories
+            game.save(update_fields=["difficulty", "selected_categories"])
+            category_label = "・".join(selected_categories) if selected_categories else "全カテゴリ"
+            GameLog.objects.create(game=game, event="question_options_changed", message=f"出題設定を変更しました（難易度：{game.get_difficulty_display()}、カテゴリ：{category_label}）。")
+            return redirect(f"{reverse('quiz:control', kwargs={'game_id': game.id})}?key={game.admin_token}")
+
+    return render(request, "quiz/game_mode.html", {
+        "game": game,
+        "difficulties": Question.Difficulty.choices,
+        "categories": categories,
+        "error": error,
+    })
+
+
 def display(request, game_id):
     return render(request, "quiz/display.html", {"game": game_or_404(game_id)})
 

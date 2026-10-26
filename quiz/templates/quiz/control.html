@@ -20,7 +20,7 @@
     <section id="buzzer-judge-card" class="host-card buzzer-judge-card hidden"><div class="host-card-heading"><span>早押し判定</span></div><p id="buzz-player">まだ誰も押していません</p><div class="judge-actions"><button id="correct-button" class="button button-red">正解 +点</button><button id="wrong-button" class="button button-outline">不正解</button></div></section>
     <section class="host-card admin-state-card"><div class="host-card-heading"><span>今回の回答・早押し</span></div><div id="answer-history" class="admin-history">回答はまだありません</div></section>
   </section>
-  <aside class="control-players-panel"><h2>参加者・得点</h2><div id="control-players" class="control-players"></div><div id="host-settings" class="host-settings"><label>ゲーム時間（分）<input id="minutes-input" type="number" min="1" max="120" value="{{ game_minutes }}" /></label><button id="minutes-button" class="button button-outline">時間を保存</button></div></aside>
+  <aside class="control-players-panel"><h2>参加者・得点</h2><div id="control-players" class="control-players"></div><div id="host-settings" class="host-settings"><label>ゲーム時間（分）<input id="minutes-input" type="number" min="1" max="120" value="{{ game_minutes }}" /></label><button id="minutes-button" class="button button-outline">時間を保存</button><a id="edit-mode-link" class="button button-outline mode-edit-link" href="{% url 'quiz:edit_game_mode' game.id %}?key={{ game.admin_token }}">ゲームモードを修正</a></div></aside>
 </section>
 <p id="control-error" class="error-message control-error"></p>
 <script src="{% static 'quiz/js/quiz_socket.js' %}"></script>
