@@ -36,7 +36,7 @@ function render(nextState) {
   // Keep the host's in-progress edit while websocket updates refresh the rest of the screen.
   if (document.activeElement !== minutesInput) minutesInput.value = game.minutes;
   const isFinished = game.phase === "finished";
-  const isChoiceQuestion = question?.type === "choice";
+  const isChoiceQuestion = ["choice", "image"].includes(question?.type);
   const isAudioQuestion = question?.type === "audio";
   const isAutoAdvancing = Boolean(game.result_advance_at);
   const progress = document.querySelector("#progress-button");

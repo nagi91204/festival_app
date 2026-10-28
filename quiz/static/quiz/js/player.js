@@ -61,7 +61,7 @@ function render(nextState) {
   const q = state.question; const myAnswer = state.my_answer;
   document.querySelector("#player-header-status").textContent = phase === "lobby" ? "参加受付" : phase === "finished" ? "ゲーム終了" : "ゲーム進行中";
   document.querySelector("#player-number").textContent = q ? `問題 ${q.number} / ${q.total}` : "";
-  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題" })[q?.type] || "次の問題";
+  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題", image:"画像予想問題" })[q?.type] || "次の問題";
   question.textContent = phase === "intro" ? `次は「${typeName}」です！` : q?.body || (phase === "finished" ? "ゲーム終了！" : "司会の開始を待っています");
   status.textContent = ({ lobby:"参加者を待っています", intro:"まもなく問題が表示されます", question:myAnswer ? "回答を受け付けました" : "答えを1つ選んでください", answer_closed:"回答を締め切りました", buzzer_open:"早押しチャンス！", buzzer_locked:"司会が判定中です", result:"結果発表", finished:"おつかれさまでした！" })[phase] || "待機中";
   renderChoices(q, phase, myAnswer);
@@ -72,7 +72,7 @@ function render(nextState) {
   }
   const result = document.querySelector("#player-result");
   result.classList.toggle("choice-confirm", phase === "question" && Boolean(myAnswer));
-  result.textContent = phase === "result" && q ? `正解：${q.correct_text || ""}` : myAnswer && q?.type === "choice" ? `「${myAnswer.selected_choice}. ${q.choices[myAnswer.selected_choice - 1]}」に決めました！` : "";
+  result.textContent = phase === "result" && q ? `正解：${q.correct_text || ""}` : myAnswer && ["choice", "image"].includes(q?.type) ? `「${myAnswer.selected_choice}. ${q.choices[myAnswer.selected_choice - 1]}」に決めました！` : "";
   const finalRankings = document.querySelector("#player-final-rankings");
   finalRankings.classList.toggle("hidden", phase !== "finished");
   if (phase === "finished") {
@@ -81,7 +81,7 @@ function render(nextState) {
   }
 }
 function renderChoices(q, phase, myAnswer) {
-  const canAnswer = q?.type === "choice" && phase === "question";
+  const canAnswer = ["choice", "image"].includes(q?.type) && phase === "question";
   const signature = canAnswer ? JSON.stringify([q.number, q.total, q.choices, myAnswer?.selected_choice ?? null]) : "";
   if (signature === renderedChoicesSignature) return;
   renderedChoicesSignature = signature;

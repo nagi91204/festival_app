@@ -11,6 +11,7 @@ class Question(models.Model):
         CHOICE = "choice", "2択・4択"
         BUZZER = "buzzer", "早押し"
         AUDIO = "audio", "音当て"
+        IMAGE = "image", "画像予想"
 
     class Difficulty(models.TextChoices):
         EASY = "easy", "簡単"
@@ -53,6 +54,8 @@ class Question(models.Model):
                 raise ValidationError("正解の番号を選択肢の範囲内で入力してください。")
         if self.question_type == self.QuestionType.AUDIO and not self.audio_file:
             raise ValidationError("音当て問題には音声ファイルを登録してください。")
+        if self.question_type == self.QuestionType.IMAGE and not self.image:
+            raise ValidationError("画像予想問題には画像を登録してください。")
 
 
 class Game(models.Model):
