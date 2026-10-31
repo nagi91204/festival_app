@@ -66,7 +66,7 @@ function render(nextState) {
   }
   if (!question) return;
   document.querySelector("#question-meta").textContent = `QUESTION ${question.number} / ${question.total}　${question.category || ""}`;
-  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題" })[question.type] || "クイズ";
+  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題", image:"画像予想問題" })[question.type] || "クイズ";
   document.querySelector("#display-question").textContent = game.phase === "intro" ? `次は「${typeName}」！` : question.body;
   const image = document.querySelector("#question-image"); image.src = question.image_url || ""; image.classList.toggle("hidden", !question.image_url || game.phase === "intro");
   document.querySelector("#display-choices").innerHTML = question.type === "choice" && game.phase !== "intro" ? question.choices.map((text, i) => `<div class="display-choice ${game.phase === "result" && question.correct_choice === i + 1 ? "display-choice-correct" : ""}">${i + 1}. ${escapeHtml(text)}</div>`).join("") : "";

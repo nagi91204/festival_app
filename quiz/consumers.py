@@ -173,7 +173,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             game, game_question = self.lock_current_game_question()
             if self.expire_if_needed(game):
                 raise ValueError("回答時間が終了しました。")
-            if game.phase != Game.Phase.QUESTION or game_question.question.question_type != Question.QuestionType.CHOICE:
+            if game.phase != Game.Phase.QUESTION or game_question.question.question_type not in (Question.QuestionType.CHOICE, Question.QuestionType.IMAGE):
                 raise ValueError("現在は選択式の回答時間ではありません。")
             if choice not in range(1, len(game_question.question.choices) + 1):
                 raise ValueError("選択肢が正しくありません。")
@@ -288,7 +288,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         question = game_question.question
         game.question_started_at = timezone.now()
         game.question_open_at = None
-        game.phase = Game.Phase.QUESTION if question.question_type == Question.QuestionType.CHOICE else Game.Phase.BUZZER_OPEN
+        game.phase = Game.Phase.QUESTION if question.question_type in (Question.QuestionType.CHOICE, Question.QuestionType.IMAGE) else Game.Phase.BUZZER_OPEN
         game.save(update_fields=["question_started_at", "question_open_at", "phase"])
         self.add_log(game, "question_started", f"問題 {game.current_index + 1}「{question.title}」を開始しました。")
 
@@ -306,7 +306,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         return False
 
     def start_auto_result_if_all_answered(self, game, game_question):
-        if game.phase != Game.Phase.QUESTION or game_question.question.question_type != Question.QuestionType.CHOICE:
+        if game.phase != Game.Phase.QUESTION or game_question.question.question_type not in (Question.QuestionType.CHOICE, Question.QuestionType.IMAGE):
             return False
         eligible_count = game.players.filter(connected=True).count()
         if not eligible_count or game_question.answers.count() < eligible_count:
@@ -459,7 +459,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             eligible = eligible.filter(category__in=game.selected_categories)
         choice_count = (game.question_count + 1) // 2
         buzzer_count = game.question_count - choice_count
-        choice_questions = list(eligible.filter(question_type=Question.QuestionType.CHOICE).order_by("?")[:choice_count])
+        choice_questions = list(eligible.filter(question_type__in=[Question.QuestionType.CHOICE, Question.QuestionType.IMAGE]).order_by("?")[:choice_count])
         buzzer_questions = list(eligible.filter(question_type__in=[Question.QuestionType.BUZZER, Question.QuestionType.AUDIO]).order_by("?")[:buzzer_count])
         candidates = choice_questions + buzzer_questions
         # 片方の形式が不足していても、重複なしで可能な限り設定された出題数を満たす。
