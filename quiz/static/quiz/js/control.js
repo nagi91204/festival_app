@@ -18,6 +18,7 @@ document.querySelector("#copy-player-url").onclick = async () => {
 document.querySelector("#progress-button").onclick = () => quiz.send("advance_game");
 document.querySelector("#close-button").onclick = () => quiz.send("close_answers");
 document.querySelector("#audio-button").onclick = () => quiz.send("play_audio");
+document.querySelector("#video-button").onclick = () => quiz.send("play_video");
 document.querySelector("#end-game-button").onclick = () => quiz.send("finish_game");
 document.querySelector("#reset-game-button").onclick = () => quiz.send("reset_game");
 document.querySelector("#correct-button").onclick = () => quiz.send("judge_buzzer", { correct:true });
@@ -38,12 +39,14 @@ function render(nextState) {
   const isFinished = game.phase === "finished";
   const isChoiceQuestion = ["choice", "image"].includes(question?.type);
   const isAudioQuestion = question?.type === "audio";
+  const isVideoQuestion = question?.type === "video";
   const isAutoAdvancing = Boolean(game.result_advance_at);
   const progress = document.querySelector("#progress-button");
   progress.textContent = ({ lobby:"ゲームを開始する", intro:"今すぐ問題を出す", question:"答え合わせへ進む", answer_closed:"答え合わせへ進む", buzzer_open:"答え合わせへ進む", result:"次の問題へ" })[game.phase] || "次へ";
   setActionState(progress, !isFinished && !isAutoAdvancing && ["lobby", "intro", "question", "answer_closed", "buzzer_open", "result"].includes(game.phase));
   setActionState(document.querySelector("#close-button"), game.phase === "question" && isChoiceQuestion);
   setActionState(document.querySelector("#audio-button"), isAudioQuestion && ["buzzer_open", "buzzer_locked"].includes(game.phase));
+  setActionState(document.querySelector("#video-button"), isVideoQuestion && ["buzzer_open", "buzzer_locked"].includes(game.phase));
   setActionState(document.querySelector("#end-game-button"), !isFinished);
   setActionState(document.querySelector("#reset-game-button"), isFinished);
   document.querySelector("#game-finished-note").classList.toggle("hidden", !isFinished);

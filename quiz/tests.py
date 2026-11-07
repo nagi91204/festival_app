@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from asgiref.sync import async_to_sync
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
 
@@ -17,6 +18,18 @@ class QuestionValidationTests(TestCase):
 
     def test_valid_choice_question_is_accepted(self):
         question = Question(title="問題", body="本文", choice_1="A", choice_2="B", correct_choice=1)
+        question.full_clean()
+
+    def test_video_question_requires_video_file(self):
+        question = Question(title="問題", body="本文", question_type=Question.QuestionType.VIDEO)
+        with self.assertRaises(ValidationError):
+            question.full_clean()
+
+    def test_valid_video_question_is_accepted(self):
+        question = Question(
+            title="問題", body="本文", question_type=Question.QuestionType.VIDEO,
+            video_file=SimpleUploadedFile("sample.mp4", b"dummy", content_type="video/mp4"),
+        )
         question.full_clean()
 
 
@@ -155,3 +168,79 @@ class ConsumerTransitionTests(TestCase):
             {"player_name": "前回の王者", "score": 90},
             {"player_name": "過去の王者", "score": 80},
         ])
+
+
+class VideoQuestionFlowTests(TestCase):
+    def _video_game(self, **game_kwargs):
+        question = Question.objects.create(
+            title="動画問題", body="この動画は何？", question_type=Question.QuestionType.VIDEO,
+            video_file=SimpleUploadedFile("sample.mp4", b"dummy", content_type="video/mp4"),
+        )
+        game = Game.objects.create(status=Game.Status.RUNNING, **game_kwargs)
+        game_question = GameQuestion.objects.create(game=game, question=question, position=0)
+        return game, game_question
+
+    def test_video_question_opens_as_buzzer_phase(self):
+        game, _ = self._video_game(phase=Game.Phase.INTRO, current_index=0)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        consumer.open_current_question(game)
+
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.BUZZER_OPEN)
+
+    def test_open_buzzer_allows_video_question(self):
+        game, _ = self._video_game(phase=Game.Phase.BUZZER_LOCKED, current_index=0)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.open_buzzer)()
+
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.BUZZER_OPEN)
+
+    def test_play_video_action_validates_for_video_question(self):
+        game, _ = self._video_game(phase=Game.Phase.BUZZER_OPEN, current_index=0)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.validate_video_playback)()
+
+        self.assertTrue(True)  # 例外が出ずに検証を通過すればよい
+
+    def test_play_video_is_rejected_for_audio_question(self):
+        question = Question.objects.create(
+            title="音問題", body="この音は何？", question_type=Question.QuestionType.AUDIO,
+            audio_file=SimpleUploadedFile("sample.mp3", b"dummy", content_type="audio/mpeg"),
+        )
+        game = Game.objects.create(status=Game.Status.RUNNING, phase=Game.Phase.BUZZER_OPEN, current_index=0)
+        GameQuestion.objects.create(game=game, question=question, position=0)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        with self.assertRaises(ValueError):
+            async_to_sync(consumer.validate_video_playback)()
+
+    def test_video_questions_join_the_buzzer_pool(self):
+        question = Question.objects.create(
+            title="動画問題", body="この動画は何？", question_type=Question.QuestionType.VIDEO,
+            video_file=SimpleUploadedFile("sample.mp4", b"dummy", content_type="video/mp4"),
+        )
+        game = Game.objects.create(status=Game.Status.LOBBY, question_count=2)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        consumer.create_random_questions(game)
+
+        self.assertIn(question, [gq.question for gq in game.game_questions.all()])
+
+    def test_state_includes_video_url_for_video_question(self):
+        game, _ = self._video_game(phase=Game.Phase.BUZZER_OPEN, current_index=0)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        state = async_to_sync(consumer.get_state)(False, None)
+
+        self.assertEqual(state["question"]["type"], Question.QuestionType.VIDEO)
+        self.assertTrue(state["question"]["video_url"].endswith(".mp4"))

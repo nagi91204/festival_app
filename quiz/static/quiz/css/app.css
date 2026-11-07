@@ -138,3 +138,7 @@ button,input { font:inherit; } button { cursor:pointer; } a { color:inherit; } h
 @media (max-width:600px) {
   .preview-audio-btn { width:100%; justify-content:center; }
 }
+
+/* 動画当て */
+.preview-question-video { display:block; max-width:min(100%,520px); max-height:220px; margin:0 auto; }
+.video-overlay { position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.8); z-index:50; }.video-overlay video { max-width:92vw; max-height:80vh; }

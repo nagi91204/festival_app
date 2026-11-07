@@ -2,6 +2,7 @@ const gameId = document.body.dataset.gameId;
 let state = null;
 let previousScores = new Map();
 const audio = document.querySelector("#display-audio");
+const video = document.querySelector("#display-video");
 const fullscreenToggle = document.querySelector("#display-fullscreen-toggle");
 
 function isFullscreen() {
@@ -42,12 +43,15 @@ fullscreenToggle.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", updateFullscreenToggle);
 document.addEventListener("webkitfullscreenchange", updateFullscreenToggle);
 updateFullscreenToggle();
-const quiz = createQuizSocket(gameId, render, (event) => { if (event.type === "play_audio" && state?.question?.audio_url) { audio.src = state.question.audio_url; audio.currentTime = 0; audio.play().catch(() => {}); } });
+const quiz = createQuizSocket(gameId, render, (event) => {
+  if (event.type === "play_audio" && state?.question?.audio_url) { audio.src = state.question.audio_url; audio.currentTime = 0; audio.play().catch(() => {}); }
+  if (event.type === "play_video" && state?.question?.video_url) { video.src = state.question.video_url; video.currentTime = 0; video.play().catch(() => {}); }
+});
 function rankingHtml(players) { return players.slice(0, 3).map((p, index) => `<li>${index + 1}位　${escapeHtml(p.nickname || p.player_name)} <strong>${p.score} pt</strong></li>`).join("") || "<li>参加者を待っています</li>"; }
 function historicalRankingHtml(entries) { return entries.map((entry, index) => `<li><span>${index + 1}位　${escapeHtml(entry.player_name)}</span><strong>${entry.score} pt</strong></li>`).join("") || "<li>最初の記録を作ろう！</li>"; }
 function render(nextState) {
   state = nextState; const { game, question, players, rankings, past_rankings: pastRankings = [] } = state;
-  document.querySelector("#display-header-title").textContent = game.phase === "lobby" ? "文化祭クイズアプリ" : game.phase === "intro" ? "NEXT QUESTION" : question?.type === "audio" ? "音当て問題" : ["buzzer_open", "buzzer_locked"].includes(game.phase) ? "早押し問題" : "2択・4択問題";
+  document.querySelector("#display-header-title").textContent = game.phase === "lobby" ? "文化祭クイズアプリ" : game.phase === "intro" ? "NEXT QUESTION" : question?.type === "audio" ? "音当て問題" : question?.type === "video" ? "動画当て問題" : ["buzzer_open", "buzzer_locked"].includes(game.phase) ? "早押し問題" : "2択・4択問題";
   const isFinalOvertime = game.phase !== "finished" && question && game.deadline && Date.now() >= new Date(game.deadline).getTime();
   document.querySelector("#display-header-status").textContent = game.phase === "lobby" ? "ゲーム開始まで" : game.phase === "finished" ? "FINAL RESULT" : isFinalOvertime ? "この問題が最終問題です" : "ゲーム終了まで";
   document.querySelector("#display-lobby").classList.toggle("hidden", game.phase !== "lobby");
@@ -66,9 +70,12 @@ function render(nextState) {
   }
   if (!question) return;
   document.querySelector("#question-meta").textContent = `QUESTION ${question.number} / ${question.total}　${question.category || ""}`;
-  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題", image:"画像予想問題" })[question.type] || "クイズ";
+  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題", video:"動画当て問題", image:"画像予想問題" })[question.type] || "クイズ";
   document.querySelector("#display-question").textContent = game.phase === "intro" ? `次は「${typeName}」！` : question.body;
-  const image = document.querySelector("#question-image"); image.src = question.image_url || ""; image.classList.toggle("hidden", !question.image_url || game.phase === "intro");
+  const videoUrl = game.phase === "intro" ? "" : question.video_url || "";
+  if (video.getAttribute("src") !== videoUrl) video.src = videoUrl;
+  video.classList.toggle("hidden", !videoUrl);
+  const image = document.querySelector("#question-image"); image.src = question.image_url || ""; image.classList.toggle("hidden", !question.image_url || game.phase === "intro" || Boolean(videoUrl));
   document.querySelector("#display-choices").innerHTML = question.type === "choice" && game.phase !== "intro" ? question.choices.map((text, i) => `<div class="display-choice ${game.phase === "result" && question.correct_choice === i + 1 ? "display-choice-correct" : ""}">${i + 1}. ${escapeHtml(text)}</div>`).join("") : "";
   const buzzed = players.find((p) => p.id === game.buzzed_player_id); document.querySelector("#buzzed-name").textContent = buzzed ? `${buzzed.nickname} さんが早押し！` : game.phase === "intro" ? "まもなく問題スタート！" : "";
   const result = document.querySelector("#display-result"); result.classList.toggle("hidden", game.phase !== "result");

@@ -14,6 +14,10 @@ const question = document.querySelector("#player-question");
 const choices = document.querySelector("#choices");
 const buzzButton = document.querySelector("#buzz-button");
 const audioButton = document.querySelector("#audio-play-button");
+const videoButton = document.querySelector("#video-play-button");
+const videoOverlay = document.querySelector("#video-overlay");
+const playerVideo = document.querySelector("#player-video");
+let videoQuestionSignature = null;
 const audio = new Audio();
 const quiz = createQuizSocket(gameId, render, handleEvent);
 function rankingMarkup(entries, emptyMessage) {
@@ -37,6 +41,7 @@ function handleEvent(event) {
     joinPanel.classList.add("hidden"); playerPanel.classList.remove("hidden"); playerFooter.classList.remove("hidden");
   }
   if (event.type === "play_audio") playAudio();
+  if (event.type === "play_video") playVideo();
   if (event.type === "error") joinError.textContent = event.message;
 }
 document.querySelector("#join-form").addEventListener("submit", (event) => {
@@ -61,13 +66,17 @@ function render(nextState) {
   const q = state.question; const myAnswer = state.my_answer;
   document.querySelector("#player-header-status").textContent = phase === "lobby" ? "参加受付" : phase === "finished" ? "ゲーム終了" : "ゲーム進行中";
   document.querySelector("#player-number").textContent = q ? `問題 ${q.number} / ${q.total}` : "";
-  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題", image:"画像予想問題" })[q?.type] || "次の問題";
+  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題", video:"動画当て問題", image:"画像予想問題" })[q?.type] || "次の問題";
   question.textContent = phase === "intro" ? `次は「${typeName}」です！` : q?.body || (phase === "finished" ? "ゲーム終了！" : "司会の開始を待っています");
   status.textContent = ({ lobby:"参加者を待っています", intro:"まもなく問題が表示されます", question:myAnswer ? "回答を受け付けました" : "答えを1つ選んでください", answer_closed:"回答を締め切りました", buzzer_open:"早押しチャンス！", buzzer_locked:"司会が判定中です", result:"結果発表", finished:"おつかれさまでした！" })[phase] || "待機中";
   renderChoices(q, phase, myAnswer);
-  buzzButton.classList.add("hidden"); audioButton.classList.add("hidden");
+  const questionSignature = q ? `${q.number}/${q.total}` : "";
+  if (questionSignature !== videoQuestionSignature) { videoQuestionSignature = questionSignature; closeVideoOverlay(); }
+  if (!["buzzer_open", "buzzer_locked"].includes(phase)) closeVideoOverlay();
+  buzzButton.classList.add("hidden"); audioButton.classList.add("hidden"); videoButton.classList.add("hidden");
   if (q && ["buzzer_open", "buzzer_locked"].includes(phase)) {
     if (q.type === "audio") { audioButton.classList.remove("hidden"); audioButton.disabled = !q.audio_url; }
+    if (q.type === "video") { videoButton.classList.remove("hidden"); videoButton.disabled = !q.video_url; }
     buzzButton.classList.remove("hidden"); buzzButton.disabled = phase !== "buzzer_open";
   }
   const result = document.querySelector("#player-result");
@@ -102,6 +111,8 @@ function resetPlayerSession() {
   rejoinSent = false;
   previousScore = null;
   audio.pause();
+  closeVideoOverlay();
+  playerVideo.src = "";
   document.querySelector("#join-form").reset();
   joinError.textContent = "";
   joinPanel.classList.remove("hidden");
@@ -120,6 +131,9 @@ function showScoreGain(delta) {
 }
 function buzz() { if (state?.game.phase === "buzzer_open") quiz.send("buzz"); }
 function playAudio() { const source = state?.question?.audio_url; if (!source) return; audio.src = source; audio.currentTime = 0; audio.play().catch(() => {}); }
-buzzButton.addEventListener("click", buzz); audioButton.addEventListener("click", playAudio);
+function playVideo() { const source = state?.question?.video_url; if (!source) return; playerVideo.src = source; playerVideo.currentTime = 0; videoOverlay.classList.remove("hidden"); playerVideo.play().catch(() => {}); }
+function closeVideoOverlay() { playerVideo.pause(); videoOverlay.classList.add("hidden"); }
+buzzButton.addEventListener("click", buzz); audioButton.addEventListener("click", playAudio); videoButton.addEventListener("click", playVideo);
+videoOverlay.addEventListener("click", (event) => { if (event.target !== playerVideo) closeVideoOverlay(); });
 document.addEventListener("keydown", (event) => { if (event.code === "Enter" && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) { event.preventDefault(); buzz(); } });
 setInterval(() => quiz.send("tick"), 1000);
