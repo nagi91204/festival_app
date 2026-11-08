@@ -11,16 +11,13 @@
     {% if error %}<p class="setup-warning">{{ error }}</p>{% endif %}
     <form method="post" class="setup-form">
       {% csrf_token %}
-      <fieldset class="difficulty-picker"><legend>難易度を選ぶ</legend><div class="difficulty-options">
-        {% for value, label in difficulties %}<label class="difficulty-card {% if value == game.difficulty %}selected{% endif %}"><input type="radio" name="difficulty" value="{{ value }}" {% if value == game.difficulty %}checked{% endif %} /><span class="difficulty-check" aria-hidden="true"></span><strong>{{ label }}</strong><small>{% if value == "easy" %}小学生低学年くらい{% elif value == "normal" %}小学生中学年くらい{% else %}じっくり考える問題{% endif %}</small></label>{% endfor %}
-      </div></fieldset>
       <fieldset class="category-picker"><legend>カテゴリを選ぶ <small>複数選択できます</small></legend>
-        {% if categories %}<div class="category-selection"><button id="all-categories" class="category-chip-all {% if not game.selected_categories %}selected{% endif %}" type="button" aria-pressed="{% if not game.selected_categories %}true{% else %}false{% endif %}">すべて</button><div class="category-options">{% for category in categories %}<label class="{% if category in game.selected_categories %}selected{% endif %}"><input type="checkbox" name="categories" value="{{ category }}" {% if category in game.selected_categories %}checked{% endif %} /><span>{{ category }}</span></label>{% endfor %}</div></div><p id="category-selection-hint">{% if game.selected_categories %}選択中：{{ game.selected_categories|join:"・" }}{% else %}全カテゴリから出題します{% endif %}</p>
+        {% if categories %}<div class="category-selection"><button id="all-categories" class="category-chip-all {% if not game.selected_categories %}selected{% endif %}" type="button" aria-pressed="{% if not game.selected_categories %}true{% else %}false{% endif %}">すべて（先生クイズを除く）</button><div class="category-options">{% for category in categories %}<label class="{% if category in game.selected_categories %}selected{% endif %}"><input type="checkbox" name="categories" value="{{ category }}" {% if category in game.selected_categories %}checked{% endif %} /><span>{{ category }}</span></label>{% endfor %}</div></div><p id="category-selection-hint">{% if game.selected_categories %}選択中：{{ game.selected_categories|join:"・" }}{% else %}全カテゴリから出題します（先生クイズを除く）{% endif %}</p>
         {% else %}<p>まだカテゴリ付きの問題がありません。問題を登録すると、ここで絞り込めます。</p>{% endif %}
       </fieldset>
       <button class="button button-red" type="submit">このモードで司会画面に戻る</button>
     </form>
   </div>
 </section>
-{% load static %}<script src="{% static 'quiz/js/game_mode.js' %}"></script>
+{% load static %}<script src="{% static 'quiz/js/game_mode.js' %}?v=no-difficulty"></script>
 {% endblock %}

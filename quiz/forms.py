@@ -11,7 +11,7 @@ class QuestionForm(forms.ModelForm):
     class Meta:
         model = Question
         fields = (
-            "title", "question_type", "category", "difficulty", "body",
+            "title", "question_type", "category", "body",
             "choice_1", "choice_2", "choice_3", "choice_4", "correct_choice",
             "correct_text", "explanation", "image", "audio_file", "video_file", "points", "is_active",
         )

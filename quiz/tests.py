@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from .consumers import QuizConsumer
-from .models import Game, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry
+from .models import Game, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry, TEACHER_QUIZ_CATEGORY
 
 
 class QuestionValidationTests(TestCase):
@@ -34,12 +34,12 @@ class QuestionValidationTests(TestCase):
 
 
 class GameViewsTests(TestCase):
-    def test_new_game_clamps_invalid_values_and_opens_control(self):
+    def test_new_game_uses_only_game_time_and_opens_control(self):
         response = self.client.post("/game/new/", {"title": "  テスト  ", "question_count": "999", "seconds": "1"})
         game = Game.objects.get()
         self.assertRedirects(response, f"/control/{game.id}/?key={game.admin_token}")
         self.assertEqual(game.title, "テスト")
-        self.assertEqual(game.question_count, 100)
+        self.assertEqual(game.question_count, 1)
         self.assertEqual(game.seconds_per_question, 5)
 
     def test_question_manager_requires_admin_key_and_registers_question(self):
@@ -66,18 +66,84 @@ class GameViewsTests(TestCase):
             title="やさしいアニメ", body="本文", choice_1="A", choice_2="B", correct_choice=1,
             difficulty=Question.Difficulty.EASY, category="アニメ",
         )
-        game = Game.objects.create(difficulty=Question.Difficulty.NORMAL)
+        game = Game.objects.create()
         url = f"/control/{game.id}/mode/?key={game.admin_token}"
 
-        response = self.client.post(url, {"difficulty": Question.Difficulty.EASY, "categories": ["アニメ"]})
+        response = self.client.post(url, {"categories": ["アニメ"]})
 
         self.assertRedirects(response, f"/control/{game.id}/?key={game.admin_token}")
         game.refresh_from_db()
-        self.assertEqual(game.difficulty, Question.Difficulty.EASY)
         self.assertEqual(game.selected_categories, ["アニメ"])
 
 
 class ConsumerTransitionTests(TestCase):
+    def test_all_categories_excludes_teacher_quizzes(self):
+        regular = Question.objects.create(
+            title="一般問題", body="本文", choice_1="A", choice_2="B", correct_choice=1, category="一般"
+        )
+        teacher = Question.objects.create(
+            title="先生問題", body="本文", choice_1="A", choice_2="B", correct_choice=1,
+            category=TEACHER_QUIZ_CATEGORY,
+        )
+        game = Game.objects.create()
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.start_next_question)()
+
+        question_ids = game.game_questions.values_list("question_id", flat=True)
+        self.assertIn(regular.id, question_ids)
+        self.assertNotIn(teacher.id, question_ids)
+        self.assertFalse(
+            game.game_questions.filter(question__category=TEACHER_QUIZ_CATEGORY).exists()
+        )
+
+    def test_teacher_quizzes_are_included_when_explicitly_selected(self):
+        Question.objects.create(
+            title="一般問題", body="本文", choice_1="A", choice_2="B", correct_choice=1, category="一般"
+        )
+        teacher = Question.objects.create(
+            title="先生問題", body="本文", choice_1="A", choice_2="B", correct_choice=1,
+            category=TEACHER_QUIZ_CATEGORY,
+        )
+        game = Game.objects.create(selected_categories=[TEACHER_QUIZ_CATEGORY])
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.start_next_question)()
+
+        self.assertIn(teacher.id, game.game_questions.values_list("question_id", flat=True))
+        self.assertTrue(
+            game.game_questions.filter(question__category=TEACHER_QUIZ_CATEGORY).exists()
+        )
+        self.assertFalse(
+            game.game_questions.exclude(question__category=TEACHER_QUIZ_CATEGORY).exists()
+        )
+
+    def test_game_adds_more_questions_until_the_game_time_ends(self):
+        category = "時間無制限テスト"
+        first = Question.objects.create(title="問題1", body="本文", choice_1="A", choice_2="B", correct_choice=1, category=category)
+        second = Question.objects.create(title="問題2", body="本文", choice_1="A", choice_2="B", correct_choice=1, category=category)
+        game = Game.objects.create(selected_categories=[category])
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.start_next_question)()
+        game.refresh_from_db()
+        self.assertEqual(game.game_questions.count(), 2)
+        self.assertEqual(game.current_index, 0)
+
+        game.current_index = 1
+        game.phase = Game.Phase.RESULT
+        game.save(update_fields=["current_index", "phase"])
+        async_to_sync(consumer.start_next_question)()
+
+        game.refresh_from_db()
+        self.assertEqual(game.status, Game.Status.RUNNING)
+        self.assertEqual(game.current_index, 2)
+        self.assertEqual(game.game_questions.count(), 3)
+        self.assertIn(GameQuestion.objects.get(game=game, position=2).question_id, {first.id, second.id})
+
     def test_close_answers_uses_a_transaction_and_changes_phase(self):
         question = Question.objects.create(title="問題", body="本文", choice_1="A", choice_2="B", correct_choice=1)
         game = Game.objects.create(status=Game.Status.RUNNING, phase=Game.Phase.QUESTION, current_index=0)

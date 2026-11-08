@@ -9,15 +9,9 @@
     <form action="{% url 'quiz:new_game' %}" method="post" class="setup-form">
       {% csrf_token %}
       <label>ゲーム名<input name="title" value="文化祭クイズ" maxlength="100" /></label>
-      <div class="form-columns">
-        <label>出題数<input name="question_count" type="number" value="10" min="1" max="100" /></label>
-        <label>ゲーム時間（分）<input name="minutes" type="number" value="5" min="1" max="120" /></label>
-      </div>
-      <fieldset class="difficulty-picker"><legend>難易度を選ぶ</legend><div class="difficulty-options">
-        {% for value, label in difficulties %}<label class="difficulty-card"><input type="radio" name="difficulty" value="{{ value }}" {% if value == "normal" %}checked{% endif %} /><span class="difficulty-check" aria-hidden="true"></span><strong>{{ label }}</strong><small>{% if value == "easy" %}小学生低学年くらい{% elif value == "normal" %}小学生中学年くらい{% else %}じっくり考える問題{% endif %}</small></label>{% endfor %}
-      </div></fieldset>
+      <label>ゲーム時間（分）<input name="minutes" type="number" value="5" min="1" max="120" /></label>
       <fieldset class="category-picker"><legend>カテゴリを選ぶ <small>複数選択できます</small></legend>
-        {% if categories %}<div class="category-selection"><button id="all-categories" class="category-chip-all selected" type="button" aria-pressed="true">すべて</button><div class="category-options">{% for category in categories %}<label><input type="checkbox" name="categories" value="{{ category }}" /><span>{{ category }}</span><small class="category-count" data-category-count="{{ category }}"></small></label>{% endfor %}</div></div><p id="category-selection-hint">全カテゴリから出題します</p>
+        {% if categories %}<div class="category-selection"><button id="all-categories" class="category-chip-all selected" type="button" aria-pressed="true">すべて（先生クイズを除く）</button><div class="category-options">{% for category in categories %}<label><input type="checkbox" name="categories" value="{{ category }}" /><span>{{ category }}</span><small class="category-count" data-category-count="{{ category }}"></small></label>{% endfor %}</div></div><p id="category-selection-hint">全カテゴリから出題します（先生クイズを除く）</p>
         {% else %}<p>まだカテゴリ付きの問題がありません。問題登録時に「アニメ」「音楽」「この声のキャラクターは？」などのカテゴリを設定すると、ここで選べます。</p><a class="small-link" href="/admin/">問題を登録する ↗</a>{% endif %}
       </fieldset>
       <aside id="question-availability" class="question-availability" aria-live="polite"><strong id="available-count">問題数を確認中</strong><span id="availability-detail"></span></aside>
@@ -25,8 +19,8 @@
       {{ question_stats|json_script:"question-stats" }}
       <button class="button button-red" type="submit">司会画面を作る</button>
     </form>
-    <p class="help-text">出題されるのは、選んだ難易度・カテゴリに一致する登録済み問題です。問題の難易度とカテゴリは <a href="/admin/">問題管理</a> またはゲーム作成後の「問題を登録・管理」から設定できます。</p>
+    <p class="help-text">出題されるのは、選んだカテゴリに一致する登録済み問題です。カテゴリは <a href="/admin/">問題管理</a> またはゲーム作成後の「問題を登録・管理」から設定できます。</p>
   </div>
 </section>
-{% load static %}<script src="{% static 'quiz/js/setup.js' %}"></script>
+{% load static %}<script src="{% static 'quiz/js/setup.js' %}?v=unlimited-questions"></script>
 {% endblock %}

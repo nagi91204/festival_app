@@ -4,6 +4,9 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 
+TEACHER_QUIZ_CATEGORY = "先生クイズ"
+
+
 class Question(models.Model):
     """Adminで登録する問題。選択式・早押し・音当てに共通で使う。"""
 
@@ -20,15 +23,18 @@ class Question(models.Model):
         HARD = "hard", "ハード"
 
     title = models.CharField("管理用タイトル", max_length=100)
-    question_type = models.CharField("問題形式", max_length=10, choices=QuestionType.choices, default=QuestionType.CHOICE)
+    question_type = models.CharField(
+        "問題形式", max_length=10, choices=QuestionType.choices, default=QuestionType.CHOICE)
     category = models.CharField("カテゴリ", max_length=50, blank=True)
-    difficulty = models.CharField("難易度", max_length=10, choices=Difficulty.choices, default=Difficulty.NORMAL)
+    difficulty = models.CharField(
+        "難易度", max_length=10, choices=Difficulty.choices, default=Difficulty.NORMAL)
     body = models.TextField("問題文")
     choice_1 = models.CharField("選択肢1", max_length=200, blank=True)
     choice_2 = models.CharField("選択肢2", max_length=200, blank=True)
     choice_3 = models.CharField("選択肢3", max_length=200, blank=True)
     choice_4 = models.CharField("選択肢4", max_length=200, blank=True)
-    correct_choice = models.PositiveSmallIntegerField("正解の番号", null=True, blank=True)
+    correct_choice = models.PositiveSmallIntegerField(
+        "正解の番号", null=True, blank=True)
     correct_text = models.CharField("正解表示・口頭回答の正解", max_length=300, blank=True)
     explanation = models.TextField("解説", blank=True)
     image = models.ImageField("問題画像", upload_to="questions/images/", blank=True)
@@ -85,17 +91,21 @@ class Game(models.Model):
     question_count = models.PositiveSmallIntegerField(default=10)
     seconds_per_question = models.PositiveSmallIntegerField(default=20)
     total_seconds = models.PositiveIntegerField(default=300)
-    difficulty = models.CharField(max_length=10, choices=Question.Difficulty.choices, default=Question.Difficulty.NORMAL)
+    difficulty = models.CharField(
+        max_length=10, choices=Question.Difficulty.choices, default=Question.Difficulty.NORMAL)
     selected_categories = models.JSONField(default=list, blank=True)
     round_number = models.PositiveIntegerField(default=1)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.LOBBY)
-    phase = models.CharField(max_length=20, choices=Phase.choices, default=Phase.LOBBY)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.LOBBY)
+    phase = models.CharField(
+        max_length=20, choices=Phase.choices, default=Phase.LOBBY)
     current_index = models.IntegerField(default=-1)
     question_started_at = models.DateTimeField(null=True, blank=True)
     game_started_at = models.DateTimeField(null=True, blank=True)
     question_open_at = models.DateTimeField(null=True, blank=True)
     result_advance_at = models.DateTimeField(null=True, blank=True)
-    buzzed_player = models.ForeignKey("GamePlayer", null=True, blank=True, on_delete=models.SET_NULL, related_name="current_buzz_games")
+    buzzed_player = models.ForeignKey(
+        "GamePlayer", null=True, blank=True, on_delete=models.SET_NULL, related_name="current_buzz_games")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -105,21 +115,23 @@ class Game(models.Model):
 class GameQuestion(models.Model):
     """このゲームでの出題順。Questionをランダムに一度だけ並べる。"""
 
-    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name="game_questions")
+    game = models.ForeignKey(
+        Game, on_delete=models.CASCADE, related_name="game_questions")
     question = models.ForeignKey(Question, on_delete=models.PROTECT)
     position = models.PositiveSmallIntegerField()
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["game", "position"], name="unique_game_position"),
-            models.UniqueConstraint(fields=["game", "question"], name="no_duplicate_question_in_game"),
+            models.UniqueConstraint(
+                fields=["game", "position"], name="unique_game_position"),
         ]
         ordering = ["position"]
 
 
 class GamePlayer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name="players")
+    game = models.ForeignKey(
+        Game, on_delete=models.CASCADE, related_name="players")
     nickname = models.CharField(max_length=20)
     slot = models.PositiveSmallIntegerField()
     score = models.IntegerField(default=0)
@@ -128,8 +140,10 @@ class GamePlayer(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["game", "nickname"], name="unique_nickname_in_game"),
-            models.UniqueConstraint(fields=["game", "slot"], name="unique_slot_in_game"),
+            models.UniqueConstraint(
+                fields=["game", "nickname"], name="unique_nickname_in_game"),
+            models.UniqueConstraint(
+                fields=["game", "slot"], name="unique_slot_in_game"),
         ]
         ordering = ["slot"]
 
@@ -138,32 +152,39 @@ class GamePlayer(models.Model):
 
 
 class PlayerAnswer(models.Model):
-    game_question = models.ForeignKey(GameQuestion, on_delete=models.CASCADE, related_name="answers")
-    player = models.ForeignKey(GamePlayer, on_delete=models.CASCADE, related_name="answers")
+    game_question = models.ForeignKey(
+        GameQuestion, on_delete=models.CASCADE, related_name="answers")
+    player = models.ForeignKey(
+        GamePlayer, on_delete=models.CASCADE, related_name="answers")
     selected_choice = models.PositiveSmallIntegerField()
     is_correct = models.BooleanField()
     answered_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["game_question", "player"], name="one_choice_answer_per_player")]
+        constraints = [models.UniqueConstraint(
+            fields=["game_question", "player"], name="one_choice_answer_per_player")]
 
 
 class BuzzerAttempt(models.Model):
-    game_question = models.ForeignKey(GameQuestion, on_delete=models.CASCADE, related_name="buzz_attempts")
-    player = models.ForeignKey(GamePlayer, on_delete=models.CASCADE, related_name="buzz_attempts")
+    game_question = models.ForeignKey(
+        GameQuestion, on_delete=models.CASCADE, related_name="buzz_attempts")
+    player = models.ForeignKey(
+        GamePlayer, on_delete=models.CASCADE, related_name="buzz_attempts")
     is_correct = models.BooleanField(null=True, blank=True)
     score_delta = models.IntegerField(default=0)
     buzzed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["game_question", "player"], name="one_buzz_per_player")]
+        constraints = [models.UniqueConstraint(
+            fields=["game_question", "player"], name="one_buzz_per_player")]
         ordering = ["buzzed_at"]
 
 
 class RankingEntry(models.Model):
     """ゲーム終了時点の順位を保存するためのスナップショット。"""
 
-    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name="ranking_entries")
+    game = models.ForeignKey(
+        Game, on_delete=models.CASCADE, related_name="ranking_entries")
     player_name = models.CharField(max_length=20)
     score = models.IntegerField()
     rank = models.PositiveSmallIntegerField()
@@ -177,8 +198,10 @@ class RankingEntry(models.Model):
 class GameLog(models.Model):
     """司会画面で確認する、ゲーム内で起きた操作と参加者の履歴。"""
 
-    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name="logs")
-    player = models.ForeignKey(GamePlayer, null=True, blank=True, on_delete=models.SET_NULL, related_name="game_logs")
+    game = models.ForeignKey(
+        Game, on_delete=models.CASCADE, related_name="logs")
+    player = models.ForeignKey(GamePlayer, null=True, blank=True,
+                               on_delete=models.SET_NULL, related_name="game_logs")
     event = models.CharField(max_length=40)
     message = models.CharField(max_length=300)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -29,7 +29,7 @@ function render(nextState) {
   const phaseLabel = ({ lobby:"待機中", intro:"次の問題を紹介中", question:"全員回答中", answer_closed:"回答締切", buzzer_open:"早押し問題", buzzer_locked:"司会判定中", result:"正解発表", finished:"ゲーム終了" })[game.phase];
   document.querySelector("#control-phase").textContent = phaseLabel;
   document.querySelector("#sidebar-current-status").textContent = game.deadline && question && Date.now() >= new Date(game.deadline).getTime() ? "時間終了・この問題が最終問題" : phaseLabel;
-  document.querySelector("#control-number").textContent = question ? `問題 ${question.number} / ${question.total}` : "";
+  document.querySelector("#control-number").textContent = question ? `問題 ${question.number}` : "";
   document.querySelector("#control-question").textContent = question ? question.body : "まだ開始していません";
   document.querySelector("#control-choices").innerHTML = question?.type === "choice" ? question.choices.map((choice, index) => `<span>${index + 1}. ${escapeHtml(choice)}</span>`).join("") : "";
   document.querySelector("#control-answer").textContent = question?.correct_text ? `正解：${question.correct_text}` : "";

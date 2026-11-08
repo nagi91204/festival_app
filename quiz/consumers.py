@@ -1,5 +1,4 @@
 from datetime import timedelta
-import random
 from urllib.parse import parse_qs
 
 from channels.db import database_sync_to_async
@@ -8,7 +7,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import F, Max
 from django.utils import timezone
 
-from .models import BuzzerAttempt, Game, GameLog, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry
+from .models import BuzzerAttempt, Game, GameLog, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry, TEACHER_QUIZ_CATEGORY
 
 
 class QuizConsumer(AsyncJsonWebsocketConsumer):
@@ -278,8 +277,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             game.game_started_at = timezone.now()
         next_index = game.current_index + 1
         if not GameQuestion.objects.filter(game=game, position=next_index).exists():
-            self.finish_game(game)
-            return
+            self.append_random_question(game, next_index)
         question = GameQuestion.objects.select_related("question").get(game=game, position=next_index).question
         game.current_index = next_index
         game.buzzed_player = None
@@ -469,22 +467,30 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     def create_random_questions(self, game):
         if game.game_questions.exists():
             return
-        eligible = Question.objects.filter(is_active=True, difficulty=game.difficulty)
-        if game.selected_categories:
-            eligible = eligible.filter(category__in=game.selected_categories)
-        choice_count = (game.question_count + 1) // 2
-        buzzer_count = game.question_count - choice_count
-        choice_questions = list(eligible.filter(question_type__in=[Question.QuestionType.CHOICE, Question.QuestionType.IMAGE]).order_by("?")[:choice_count])
-        buzzer_questions = list(eligible.filter(question_type__in=[Question.QuestionType.BUZZER, Question.QuestionType.AUDIO, Question.QuestionType.VIDEO]).order_by("?")[:buzzer_count])
-        candidates = choice_questions + buzzer_questions
-        # 片方の形式が不足していても、重複なしで可能な限り設定された出題数を満たす。
-        if len(candidates) < game.question_count:
-            used_ids = [question.id for question in candidates]
-            candidates.extend(eligible.exclude(id__in=used_ids).order_by("?")[: game.question_count - len(candidates)])
+        eligible = self.eligible_questions(game)
+        candidates = list(eligible.order_by("?"))
         if not candidates:
             raise ValueError("Adminで有効な問題を1問以上登録してください。")
-        random.shuffle(candidates)
         GameQuestion.objects.bulk_create([GameQuestion(game=game, question=question, position=index) for index, question in enumerate(candidates)])
+
+    def append_random_question(self, game, position):
+        """時間内なら、問題を使い切った後もランダムに1問追加する。"""
+        eligible = self.eligible_questions(game)
+        if not eligible.exists():
+            raise ValueError("Adminで有効な問題を1問以上登録してください。")
+        previous_question_id = GameQuestion.objects.filter(
+            game=game, position=position - 1
+        ).values_list("question_id", flat=True).first()
+        candidates = eligible.exclude(id=previous_question_id) if previous_question_id else eligible
+        question = candidates.order_by("?").first() or eligible.order_by("?").first()
+        GameQuestion.objects.create(game=game, question=question, position=position)
+
+    @staticmethod
+    def eligible_questions(game):
+        eligible = Question.objects.filter(is_active=True)
+        if game.selected_categories:
+            return eligible.filter(category__in=game.selected_categories)
+        return eligible.exclude(category=TEACHER_QUIZ_CATEGORY)
 
     def finish_game(self, game):
         game.status = Game.Status.FINISHED
