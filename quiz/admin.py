@@ -12,7 +12,7 @@ class QuestionAdmin(admin.ModelAdmin):
         ("基本", {"fields": ("title", "question_type", "category", "difficulty", "body", "points", "is_active")}),
         ("選択式", {"fields": ("choice_1", "choice_2", "choice_3", "choice_4", "correct_choice")}),
         ("早押し・音当ての答え", {"fields": ("correct_text", "explanation")}),
-        ("メディア", {"fields": ("image", "audio_file")}),
+        ("メディア", {"fields": ("image", "audio_file", "video_file")}),
     )
 
 

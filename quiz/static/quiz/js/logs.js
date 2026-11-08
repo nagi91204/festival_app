@@ -36,7 +36,7 @@ function renderPlayerPreview() {
     const phaseText = ({ lobby:"参加受付中", intro:"まもなく問題が表示されます", question:"答えを1つ選んでください", answer_closed:"回答を締め切りました", buzzer_open:"早押しチャンス！", buzzer_locked:"司会が判定中です", result:"結果発表", finished:"おつかれさまでした！" })[game.phase] || "待機中";
     const answer = answers.find((item) => String(item.player_id) === String(player.id));
     const answerStatus = answer ? `この問題の回答：${answer.selected_choice}番を送信済み` : player.answered ? "この問題に回答済み" : game.phase === "question" ? "この問題はまだ未回答" : "回答待ち・または該当なし";
-    const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題" })[question?.type] || "次の問題";
+    const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題", video:"動画当て問題", image:"画像予想問題" })[question?.type] || "次の問題";
     const questionText = game.phase === "intro" ? `次は「${typeName}」です！` : question?.body || (game.phase === "finished" ? "ゲーム終了！" : "司会の開始を待っています");
     const choices = question?.type === "choice" && game.phase === "question" ? `<div class="preview-choices">${question.choices.map((choice, index) => `<div class="choice ${answer?.selected_choice === index + 1 ? "choice-selected" : ""}">${index + 1}. ${escapeHtml(choice)}</div>`).join("")}</div>` : "";
     const result = game.phase === "result" && question ? `正解：${escapeHtml(question.correct_text || "")}` : answer ? `「${answer.selected_choice}番」に決めました！` : "";

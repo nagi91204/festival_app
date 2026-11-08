@@ -11,6 +11,7 @@ class Question(models.Model):
         CHOICE = "choice", "2択・4択"
         BUZZER = "buzzer", "早押し"
         AUDIO = "audio", "音当て"
+        VIDEO = "video", "動画当て"
         IMAGE = "image", "画像予想"
 
     class Difficulty(models.TextChoices):
@@ -32,6 +33,7 @@ class Question(models.Model):
     explanation = models.TextField("解説", blank=True)
     image = models.ImageField("問題画像", upload_to="questions/images/", blank=True)
     audio_file = models.FileField("音声ファイル", upload_to="questions/audio/", blank=True)
+    video_file = models.FileField("動画ファイル", upload_to="questions/videos/", blank=True)
     points = models.PositiveIntegerField("正解時の得点", default=10)
     is_active = models.BooleanField("出題に使う", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -54,6 +56,8 @@ class Question(models.Model):
                 raise ValidationError("正解の番号を選択肢の範囲内で入力してください。")
         if self.question_type == self.QuestionType.AUDIO and not self.audio_file:
             raise ValidationError("音当て問題には音声ファイルを登録してください。")
+        if self.question_type == self.QuestionType.VIDEO and not self.video_file:
+            raise ValidationError("動画当て問題には動画ファイルを登録してください。")
         if self.question_type == self.QuestionType.IMAGE and not self.image:
             raise ValidationError("画像予想問題には画像を登録してください。")
 

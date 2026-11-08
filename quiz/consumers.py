@@ -42,7 +42,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         try:
             admin_actions = {
                 "start_next_question", "advance_game", "close_answers", "reveal_result", "open_buzzer",
-                "judge_buzzer", "adjust_score", "set_seconds", "set_game_minutes", "expire_question", "play_audio", "finish_game", "reset_game",
+                "judge_buzzer", "adjust_score", "set_seconds", "set_game_minutes", "expire_question", "play_audio", "play_video", "finish_game", "reset_game",
             }
             if action in admin_actions and not self.is_admin:
                 raise ValueError("管理者画面から操作してください。")
@@ -88,6 +88,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 await self.validate_audio_playback()
                 await self.channel_layer.group_send(self.group_name, {"type": "audio.play"})
                 return
+            elif action == "play_video":
+                await self.validate_video_playback()
+                await self.channel_layer.group_send(self.group_name, {"type": "video.play"})
+                return
             elif action == "finish_game":
                 await self.end_game()
             elif action == "reset_game":
@@ -104,6 +108,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     async def audio_play(self, event):
         await self.send_json({"type": "play_audio"})
+
+    async def video_play(self, event):
+        await self.send_json({"type": "play_video"})
 
     async def game_reset(self, event):
         await self.send_json({"type": "game_reset"})
@@ -343,7 +350,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     def open_buzzer(self):
         with transaction.atomic():
             game, game_question = self.lock_current_game_question()
-            if game_question.question.question_type not in (Question.QuestionType.BUZZER, Question.QuestionType.AUDIO):
+            if game_question.question.question_type not in (Question.QuestionType.BUZZER, Question.QuestionType.AUDIO, Question.QuestionType.VIDEO):
                 raise ValueError("早押し問題ではありません。")
             if game.phase not in (Game.Phase.BUZZER_OPEN, Game.Phase.BUZZER_LOCKED):
                 raise ValueError("現在は早押しを開けません。")
@@ -426,6 +433,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if game.phase not in (Game.Phase.BUZZER_OPEN, Game.Phase.BUZZER_LOCKED):
             raise ValueError("現在は音声を再生できません。")
 
+    @database_sync_to_async
+    def validate_video_playback(self):
+        game, game_question = self.lock_current_game_question()
+        if game_question.question.question_type != Question.QuestionType.VIDEO:
+            raise ValueError("動画当て問題ではありません。")
+        if game.phase not in (Game.Phase.BUZZER_OPEN, Game.Phase.BUZZER_LOCKED):
+            raise ValueError("現在は動画を再生できません。")
+
     def expire_if_needed(self, game):
         # game_started_at がない既存ゲームは、以前の「1問ごと」ルールで安全に完走させる。
         if not game.game_started_at:
@@ -460,7 +475,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         choice_count = (game.question_count + 1) // 2
         buzzer_count = game.question_count - choice_count
         choice_questions = list(eligible.filter(question_type__in=[Question.QuestionType.CHOICE, Question.QuestionType.IMAGE]).order_by("?")[:choice_count])
-        buzzer_questions = list(eligible.filter(question_type__in=[Question.QuestionType.BUZZER, Question.QuestionType.AUDIO]).order_by("?")[:buzzer_count])
+        buzzer_questions = list(eligible.filter(question_type__in=[Question.QuestionType.BUZZER, Question.QuestionType.AUDIO, Question.QuestionType.VIDEO]).order_by("?")[:buzzer_count])
         candidates = choice_questions + buzzer_questions
         # 片方の形式が不足していても、重複なしで可能な限り設定された出題数を満たす。
         if len(candidates) < game.question_count:
@@ -502,7 +517,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if current_gq:
             question = current_gq.question
             is_intro_for_viewer = game.phase == Game.Phase.INTRO and not include_admin
-            question_data = {"number": game.current_index + 1, "total": len(game_questions), "type": question.question_type, "category": question.category, "body": "" if is_intro_for_viewer else question.body, "choices": [] if is_intro_for_viewer else question.choices, "points": question.points, "image_url": "" if is_intro_for_viewer else (question.image.url if question.image else ""), "audio_url": "" if is_intro_for_viewer else (question.audio_file.url if question.audio_file else "")}
+            question_data = {"number": game.current_index + 1, "total": len(game_questions), "type": question.question_type, "category": question.category, "body": "" if is_intro_for_viewer else question.body, "choices": [] if is_intro_for_viewer else question.choices, "points": question.points, "image_url": "" if is_intro_for_viewer else (question.image.url if question.image else ""), "audio_url": "" if is_intro_for_viewer else (question.audio_file.url if question.audio_file else ""), "video_url": "" if is_intro_for_viewer else (question.video_file.url if question.video_file else "")}
             if include_admin or game.phase in (Game.Phase.RESULT, Game.Phase.FINISHED):
                 question_data.update({"correct_choice": question.correct_choice, "correct_text": question.correct_text or (question.choices[question.correct_choice - 1] if question.correct_choice else ""), "explanation": question.explanation})
                 answer_data = list(current_gq.answers.select_related("player").values("player_id", "player__nickname", "selected_choice", "is_correct"))

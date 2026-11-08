@@ -35,13 +35,18 @@
       {% for question in questions %}
         <article class="question-list-row"
           data-question-id="{{ question.id }}"
+          data-number="{{ forloop.counter }}"
+          data-total="{{ questions|length }}"
+          data-title="{{ question.title }}"
+          data-body="{{ question.body }}"
           data-type="{{ question.question_type }}"
           data-image-url="{% if question.image %}{{ question.image.url }}{% else %}{% endif %}"
           data-audio-url="{% if question.audio_file %}{{ question.audio_file.url }}{% else %}{% endif %}"
-          data-choices='{{ question.choices|safe }}'
+          data-video-url="{% if question.video_file %}{{ question.video_file.url }}{% else %}{% endif %}"
+          data-choices="[{% for choice in question.choices %}&quot;{{ choice }}&quot;{% if not forloop.last %},{% endif %}{% endfor %}]"
           data-correct-choice="{{ question.correct_choice|default:1 }}"
-          data-correct-text="{{ question.correct_text|default:''|escapejs }}"
-          data-explanation="{{ question.explanation|default:''|escapejs }}">
+          data-correct-text="{{ question.correct_text|default:'' }}"
+          data-explanation="{{ question.explanation|default:'' }}">
           <div>
             <span class="question-type-badge">{{ question.get_question_type_display }} / {{ question.get_difficulty_display }}</span>
             <strong>{{ question.title }}</strong>
@@ -78,6 +83,7 @@
           <p class="preview-number" id="preview-meta">QUESTION 1 / 10</p>
           <h3 id="preview-body">問題文がここに表示されます</h3>
           <img id="preview-image" class="preview-question-image hidden" alt="問題画像" />
+          <video id="preview-video" class="preview-question-video hidden" playsinline></video>
           <div class="preview-choices" id="preview-choices"></div>
           <p class="preview-answer hidden" id="preview-answer"></p>
         </div>
