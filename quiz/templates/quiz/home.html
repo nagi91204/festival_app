@@ -21,6 +21,19 @@
     </form>
     <p class="help-text">出題されるのは、選んだカテゴリに一致する登録済み問題です。カテゴリは <a href="/admin/">問題管理</a> またはゲーム作成後の「問題を登録・管理」から設定できます。</p>
   </div>
+  <div class="setup-card join-card">
+    <p class="screen-kicker">JOIN GAME</p>
+    <h2>既存のゲームに参加する</h2>
+    <p class="lead">司会が大画面・司会画面に表示している参加コードを入力してください。</p>
+    <form action="{% url 'quiz:join' %}" method="post" class="join-form">
+      {% csrf_token %}
+      <label class="sr-only" for="join-code-input">参加コード</label>
+      <input id="join-code-input" name="code" inputmode="numeric" pattern="[0-9]+" maxlength="6" autocomplete="off" placeholder="1234" required />
+      <button class="button button-red" type="submit">参加する</button>
+    </form>
+    {% if join_error %}<p class="error-message join-error">{{ join_error }}</p>{% endif %}
+    <p class="help-text">参加コードはゲームごとに発行され、リセット後の次のラウンドでも同じコードを使えます。</p>
+  </div>
 </section>
 {% load static %}<script src="{% static 'quiz/js/setup.js' %}?v=unlimited-questions"></script>
 {% endblock %}

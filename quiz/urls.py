@@ -6,6 +6,8 @@ app_name = "quiz"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("join/", views.join, name="join"),
+    path("j/<str:code>/", views.join_by_code, name="join_by_code"),
     path("game/new/", views.new_game, name="new_game"),
     path("control/<uuid:game_id>/", views.control, name="control"),
     path("control/<uuid:game_id>/mode/", views.edit_game_mode, name="edit_game_mode"),

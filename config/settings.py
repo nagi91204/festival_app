@@ -27,16 +27,16 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() in {"1", "true", "yes", "on"}
+DEBUG = True
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv(
-    "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
+ALLOWED_HOSTS = ["*"]
 
 # HTTPS で公開する ngrok のランダムなサブドメインからのフォーム POST を許可する。
 # 本番の固定ドメインを使う場合は、DJANGO_CSRF_TRUSTED_ORIGINS でその URL のみに絞る。
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
-    "https://*.ngrok-free.app,https://*.ngrok-free.dev,https://*.ngrok.app",
+    "https://*.ngrok-free.app,https://*.ngrok-free.dev,https://*.ngrok.app,10.88.5.105",
+    
 ).split(",") if origin.strip()]
 
 

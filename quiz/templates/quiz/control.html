@@ -8,10 +8,10 @@
 <section class="control-shell">
   <aside class="control-sidebar">
     <p class="screen-kicker">現在の状態</p><h1 id="sidebar-current-status">待機中</h1>
-    <div class="player-url-box"><p>参加者画面（共有するURL）</p><a id="player-link" target="_blank" rel="noopener" href="{{ player_url }}">回答者画面を開く ↗</a><code id="player-url">{{ player_url }}</code><button id="copy-player-url" class="copy-url" type="button">URLをコピー</button></div>
+    <div class="player-url-box"><p>参加コード（参加者はホーム画面で入力）</p><strong id="join-code">{{ game.join_code }}</strong><p>参加者画面URL（コード入力ができない場合の予備）</p><a id="player-link" target="_blank" rel="noopener" href="{{ player_url }}">回答者画面を開く ↗</a><code id="player-url">{{ player_url }}</code><button id="copy-player-url" class="copy-url" type="button">URLをコピー</button></div>
     <a class="question-manager-link" href="{% url 'quiz:question_manager' game.id %}?key={{ game.admin_token }}">問題を登録・管理</a><a class="question-manager-link" href="{% url 'quiz:game_logs' game.id %}?key={{ game.admin_token }}">全体ログを開く</a>
     <div class="sidebar-actions">
-      <button id="progress-button" class="button button-red">ゲームを開始する</button><button id="close-button" class="button button-outline">回答を締め切る</button><button id="audio-button" class="button button-outline">音を再生</button><button id="video-button" class="button button-outline">動画を再生</button><button id="end-game-button" class="button button-outline danger-button">ゲームを終了する</button><button id="reset-game-button" class="button button-red hidden">次のゲームを準備する</button>
+      <button id="progress-button" class="button button-red">ゲームを開始する</button><button id="close-button" class="button button-outline">回答を締め切る</button><button id="audio-button" class="button button-outline">音を再生</button><button id="video-button" class="button button-outline">動画を再生</button><button id="end-game-button" class="button button-outline danger-button">ゲームを終了する</button><button id="reset-game-button" class="button button-red hidden">次のゲームを準備する</button><button id="reset-mode-button" class="button button-outline hidden">カテゴリを変更して次のゲームへ</button>
     </div>
     <p id="game-finished-note" class="game-finished-note hidden">ゲームは終了しました。<br />リセットすると次のゲームを開始できます。</p>
   </aside>

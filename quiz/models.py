@@ -1,3 +1,4 @@
+import secrets
 import uuid
 
 from django.core.exceptions import ValidationError
@@ -86,6 +87,7 @@ class Game(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     admin_token = models.UUIDField(default=uuid.uuid4, editable=False)
+    join_code = models.CharField(max_length=6, unique=True, editable=False)
     title = models.CharField(max_length=100, default="文化祭クイズ")
     max_players = models.PositiveSmallIntegerField(default=5)
     question_count = models.PositiveSmallIntegerField(default=10)
@@ -110,6 +112,18 @@ class Game(models.Model):
 
     def __str__(self):
         return f"{self.title} ({str(self.id)[:8]})"
+
+    @staticmethod
+    def generate_join_code():
+        """4桁の参加コードを作る。重複が続く場合は6桁に逃げる。"""
+        for _ in range(200):
+            code = f"{secrets.randbelow(10000):04d}"
+            if not Game.objects.filter(join_code=code).exists():
+                return code
+        while True:
+            code = f"{secrets.randbelow(1000000):06d}"
+            if not Game.objects.filter(join_code=code).exists():
+                return code
 
 
 class GameQuestion(models.Model):
