@@ -76,6 +76,46 @@ class GameViewsTests(TestCase):
         self.assertEqual(game.selected_categories, ["アニメ"])
 
 
+class JoinCodeTests(TestCase):
+    def test_created_games_get_unique_join_codes_automatically(self):
+        game = Game.objects.create()
+        other = Game.objects.create()
+        self.assertTrue(game.join_code.isdigit())
+        self.assertNotEqual(game.join_code, other.join_code)
+
+    def test_home_shows_join_code_card(self):
+        response = self.client.get("/")
+        self.assertContains(response, "join-code-input")
+        self.assertContains(response, "既存のゲームに参加する")
+
+    def test_join_redirects_to_player_screen(self):
+        game = Game.objects.create()
+        response = self.client.post("/join/", {"code": game.join_code})
+        self.assertRedirects(response, f"/player/{game.id}/", fetch_redirect_response=False)
+
+    def test_join_accepts_leading_zeros_and_non_digits(self):
+        game = Game.objects.create()
+        zero_padded = f"{int(game.join_code):04d}"
+        response = self.client.post("/join/", {"code": f" {zero_padded} "})
+        self.assertRedirects(response, f"/player/{game.id}/", fetch_redirect_response=False)
+
+    def test_join_rejects_unknown_code(self):
+        response = self.client.post("/join/", {"code": "9999"})
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "見つかりません", status_code=400)
+
+    def test_join_rejects_finished_game(self):
+        game = Game.objects.create(status=Game.Status.FINISHED, phase=Game.Phase.FINISHED)
+        response = self.client.post("/join/", {"code": game.join_code})
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "終了", status_code=400)
+
+    def test_join_shortcut_url_redirects_to_player_screen(self):
+        game = Game.objects.create()
+        response = self.client.get(f"/j/{game.join_code}/")
+        self.assertRedirects(response, f"/player/{game.id}/", fetch_redirect_response=False)
+
+
 class ConsumerTransitionTests(TestCase):
     def test_all_categories_excludes_teacher_quizzes(self):
         regular = Question.objects.create(
@@ -120,10 +160,11 @@ class ConsumerTransitionTests(TestCase):
             game.game_questions.exclude(question__category=TEACHER_QUIZ_CATEGORY).exists()
         )
 
-    def test_game_adds_more_questions_until_the_game_time_ends(self):
-        category = "時間無制限テスト"
-        first = Question.objects.create(title="問題1", body="本文", choice_1="A", choice_2="B", correct_choice=1, category=category)
-        second = Question.objects.create(title="問題2", body="本文", choice_1="A", choice_2="B", correct_choice=1, category=category)
+    def test_game_finishes_when_question_pool_is_exhausted(self):
+        """出題対象を使い切ったら、制限時間が残っていてもゲームを終了する。"""
+        category = "問題数有限テスト"
+        Question.objects.create(title="問題1", body="本文", choice_1="A", choice_2="B", correct_choice=1, category=category)
+        Question.objects.create(title="問題2", body="本文", choice_1="A", choice_2="B", correct_choice=1, category=category)
         game = Game.objects.create(selected_categories=[category])
         consumer = QuizConsumer()
         consumer.game_id = str(game.id)
@@ -139,10 +180,10 @@ class ConsumerTransitionTests(TestCase):
         async_to_sync(consumer.start_next_question)()
 
         game.refresh_from_db()
-        self.assertEqual(game.status, Game.Status.RUNNING)
-        self.assertEqual(game.current_index, 2)
-        self.assertEqual(game.game_questions.count(), 3)
-        self.assertIn(GameQuestion.objects.get(game=game, position=2).question_id, {first.id, second.id})
+        self.assertEqual(game.status, Game.Status.FINISHED)
+        self.assertEqual(game.phase, Game.Phase.FINISHED)
+        self.assertEqual(game.current_index, 1)
+        self.assertEqual(game.game_questions.count(), 2)
 
     def test_close_answers_uses_a_transaction_and_changes_phase(self):
         question = Question.objects.create(title="問題", body="本文", choice_1="A", choice_2="B", correct_choice=1)

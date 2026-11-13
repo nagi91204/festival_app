@@ -125,6 +125,11 @@ class Game(models.Model):
             if not Game.objects.filter(join_code=code).exists():
                 return code
 
+    def save(self, *args, **kwargs):
+        if not self.join_code:
+            self.join_code = self.generate_join_code()
+        super().save(*args, **kwargs)
+
 
 class GameQuestion(models.Model):
     """このゲームでの出題順。Questionをランダムに一度だけ並べる。"""
