@@ -10,6 +10,7 @@
       {% csrf_token %}
       <label>ゲーム名<input name="title" value="文化祭クイズ" maxlength="100" /></label>
       <label>ゲーム時間（分）<input name="minutes" type="number" value="5" min="1" max="120" /></label>
+      <label>出題数の上限 <small>0で無制限（時間内に出題できるだけ出題）</small><input name="max_questions" type="number" value="0" min="0" max="200" /></label>
       <fieldset class="category-picker"><legend>カテゴリを選ぶ <small>複数選択できます</small></legend>
         {% if categories %}<div class="category-selection"><button id="all-categories" class="category-chip-all selected" type="button" aria-pressed="true">すべて（先生クイズを除く）</button><div class="category-options">{% for category in categories %}<label><input type="checkbox" name="categories" value="{{ category }}" /><span>{{ category }}</span><small class="category-count" data-category-count="{{ category }}"></small></label>{% endfor %}</div></div><p id="category-selection-hint">全カテゴリから出題します（先生クイズを除く）</p>
         {% else %}<p>まだカテゴリ付きの問題がありません。問題登録時に「アニメ」「音楽」「この声のキャラクターは？」などのカテゴリを設定すると、ここで選べます。</p><a class="small-link" href="/admin/">問題を登録する ↗</a>{% endif %}

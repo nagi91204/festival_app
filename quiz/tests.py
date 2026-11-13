@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from .consumers import QuizConsumer
-from .models import Game, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry, TEACHER_QUIZ_CATEGORY
+from .models import Game, GameLog, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry, TEACHER_QUIZ_CATEGORY
 
 
 class QuestionValidationTests(TestCase):
@@ -42,6 +42,19 @@ class GameViewsTests(TestCase):
         self.assertEqual(game.question_count, 1)
         self.assertEqual(game.seconds_per_question, 5)
 
+    def test_new_game_applies_question_limit(self):
+        Question.objects.create(title="問題", body="本文", choice_1="A", choice_2="B", correct_choice=1, category="アニメ")
+        response = self.client.post("/game/new/", {"title": "上限テスト", "minutes": "5", "max_questions": "7"})
+        game = Game.objects.get(title="上限テスト")
+        self.assertRedirects(response, f"/control/{game.id}/?key={game.admin_token}")
+        self.assertEqual(game.max_questions, 7)
+        self.assertTrue(GameLog.objects.filter(game=game, message__contains="出題数上限：7問").exists())
+
+    def test_new_game_ignores_invalid_question_limit(self):
+        self.client.post("/game/new/", {"title": "無効テスト", "minutes": "5", "max_questions": "abc"})
+        game = Game.objects.get(title="無効テスト")
+        self.assertEqual(game.max_questions, 0)
+
     def test_question_manager_requires_admin_key_and_registers_question(self):
         game = Game.objects.create()
         url = f"/control/{game.id}/questions/?key={game.admin_token}"
@@ -74,6 +87,32 @@ class GameViewsTests(TestCase):
         self.assertRedirects(response, f"/control/{game.id}/?key={game.admin_token}")
         game.refresh_from_db()
         self.assertEqual(game.selected_categories, ["アニメ"])
+
+    def test_mode_page_shows_category_counts_and_saves_question_limit(self):
+        Question.objects.create(title="アニメ1", body="本文", choice_1="A", choice_2="B", correct_choice=1, category="アニメ")
+        Question.objects.create(title="アニメ2", body="本文", choice_1="A", choice_2="B", correct_choice=1, category="アニメ")
+        Question.objects.create(title="音楽1", body="本文", choice_1="A", choice_2="B", correct_choice=1, category="音楽")
+        game = Game.objects.create()
+        url = f"/control/{game.id}/mode/?key={game.admin_token}"
+
+        page = self.client.get(url)
+        self.assertContains(page, "出題内容を変更")
+        self.assertContains(page, "2 問")
+        self.assertContains(page, "name=\"max_questions\"")
+
+        response = self.client.post(url, {"categories": ["アニメ"], "max_questions": "5"})
+        self.assertRedirects(response, f"/control/{game.id}/?key={game.admin_token}")
+        game.refresh_from_db()
+        self.assertEqual(game.max_questions, 5)
+        self.assertTrue(GameLog.objects.filter(game=game, message__contains="上限：5問").exists())
+
+    def test_question_limit_ignores_invalid_values(self):
+        Question.objects.create(title="問題", body="本文", choice_1="A", choice_2="B", correct_choice=1, category="一般")
+        game = Game.objects.create()
+        url = f"/control/{game.id}/mode/?key={game.admin_token}"
+        self.client.post(url, {"categories": ["一般"], "max_questions": "abc"})
+        game.refresh_from_db()
+        self.assertEqual(game.max_questions, 0)
 
 
 class JoinCodeTests(TestCase):
@@ -183,6 +222,28 @@ class ConsumerTransitionTests(TestCase):
         self.assertEqual(game.status, Game.Status.FINISHED)
         self.assertEqual(game.phase, Game.Phase.FINISHED)
         self.assertEqual(game.current_index, 1)
+        self.assertEqual(game.game_questions.count(), 2)
+
+    def test_question_limit_caps_pool_and_ends_game_at_the_limit(self):
+        """上限が設定されたら、その問題数を出題し終えた時点でゲームを終了する。"""
+        category = "上限テスト"
+        for number in range(1, 5):
+            Question.objects.create(title=f"問題{number}", body="本文", choice_1="A", choice_2="B", correct_choice=1, category=category)
+        game = Game.objects.create(selected_categories=[category], max_questions=2)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.start_next_question)()
+        game.refresh_from_db()
+        self.assertEqual(game.game_questions.count(), 2)  # 4問あっても2問だけ作る
+
+        game.current_index = 1
+        game.phase = Game.Phase.RESULT
+        game.save(update_fields=["current_index", "phase"])
+        async_to_sync(consumer.start_next_question)()
+
+        game.refresh_from_db()
+        self.assertEqual(game.status, Game.Status.FINISHED)
         self.assertEqual(game.game_questions.count(), 2)
 
     def test_close_answers_uses_a_transaction_and_changes_phase(self):

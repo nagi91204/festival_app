@@ -1,21 +1,22 @@
 {% extends "quiz/base.html" %}
-{% block title %}ゲームモードを修正 | ネプリ―グ！{% endblock %}
-{% block header_title %}ゲームモードを修正{% endblock %}
+{% block title %}出題内容を変更 | ネプリ―グ！{% endblock %}
+{% block header_title %}出題内容を変更{% endblock %}
 {% block header_action %}<a class="header-link" href="{% url 'quiz:control' game.id %}?key={{ game.admin_token }}">司会画面へ戻る</a>{% endblock %}
 {% block content %}
 <section class="setup-shell">
   <div class="setup-card">
     <p class="screen-kicker">NEXT GAME SETTINGS</p>
-    <h1>次のゲームのモードを選ぶ</h1>
-    <p class="lead">参加者はそのままに、出題する問題だけを選び直せます。</p>
+    <h1>次のゲームの出題内容を変更</h1>
+    <p class="lead">参加者はそのままに、出題する問題のカテゴリと問題数を選び直せます。</p>
     {% if error %}<p class="setup-warning">{{ error }}</p>{% endif %}
     <form method="post" class="setup-form">
       {% csrf_token %}
       <fieldset class="category-picker"><legend>カテゴリを選ぶ <small>複数選択できます</small></legend>
-        {% if categories %}<div class="category-selection"><button id="all-categories" class="category-chip-all {% if not game.selected_categories %}selected{% endif %}" type="button" aria-pressed="{% if not game.selected_categories %}true{% else %}false{% endif %}">すべて（先生クイズを除く）</button><div class="category-options">{% for category in categories %}<label class="{% if category in game.selected_categories %}selected{% endif %}"><input type="checkbox" name="categories" value="{{ category }}" {% if category in game.selected_categories %}checked{% endif %} /><span>{{ category }}</span></label>{% endfor %}</div></div><p id="category-selection-hint">{% if game.selected_categories %}選択中：{{ game.selected_categories|join:"・" }}{% else %}全カテゴリから出題します（先生クイズを除く）{% endif %}</p>
+        {% if categories %}<div class="category-selection"><button id="all-categories" class="category-chip-all {% if not game.selected_categories %}selected{% endif %}" type="button" aria-pressed="{% if not game.selected_categories %}true{% else %}false{% endif %}">すべて（先生クイズを除く）</button><div class="category-options">{% for category, count in category_counts %}<label class="{% if category in game.selected_categories %}selected{% endif %}"><input type="checkbox" name="categories" value="{{ category }}" {% if category in game.selected_categories %}checked{% endif %} /><span>{{ category }}</span><small class="category-count">{{ count }} 問</small></label>{% endfor %}</div></div><p id="category-selection-hint">{% if game.selected_categories %}選択中：{{ game.selected_categories|join:"・" }}{% else %}全カテゴリから出題します（先生クイズを除く）{% endif %}</p>
         {% else %}<p>まだカテゴリ付きの問題がありません。問題を登録すると、ここで絞り込めます。</p>{% endif %}
       </fieldset>
-      <button class="button button-red" type="submit">このモードで司会画面に戻る</button>
+      <label>出題数の上限 <small>0で無制限（時間内に出題できるだけ出題）</small><input name="max_questions" type="number" min="0" max="200" value="{{ game.max_questions }}" /></label>
+      <button class="button button-red" type="submit">この内容で司会画面に戻る</button>
     </form>
   </div>
 </section>

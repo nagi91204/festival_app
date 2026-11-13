@@ -60,15 +60,20 @@ def new_game(request):
             5, min(int(request.POST.get("seconds", minutes * 60)), 120))
     except (TypeError, ValueError):
         minutes, legacy_seconds = 5, 120
+    try:
+        max_questions = max(0, min(int(request.POST.get("max_questions", 0)), 200))
+    except (TypeError, ValueError):
+        max_questions = 0
     selected_categories = [category for category in request.POST.getlist(
         "categories") if category in Question.objects.filter(is_active=True).values_list("category", flat=True)]
     game = Game.objects.create(title=title, question_count=1, seconds_per_question=legacy_seconds,
                                total_seconds=minutes * 60, selected_categories=selected_categories,
-                               join_code=Game.generate_join_code())
+                               max_questions=max_questions, join_code=Game.generate_join_code())
     category_label = "・".join(
         selected_categories) if selected_categories else "全カテゴリ（先生クイズを除く）"
+    limit_label = f"、出題数上限：{max_questions}問" if max_questions else ""
     GameLog.objects.create(game=game, event="game_created",
-                           message=f"ゲームを作成しました（カテゴリ：{category_label}）。")
+                           message=f"ゲームを作成しました（カテゴリ：{category_label}{limit_label}）。")
     return redirect(f"{reverse('quiz:control', kwargs={'game_id': game.id})}?key={game.admin_token}")
 
 
@@ -105,17 +110,26 @@ def edit_game_mode(request, game_id):
         if not error and not eligible.exists():
             error = "そのカテゴリに一致する有効な問題がありません。"
         if not error:
+            try:
+                max_questions = max(0, min(int(request.POST.get("max_questions", 0)), 200))
+            except (TypeError, ValueError):
+                max_questions = 0
             game.selected_categories = selected_categories
-            game.save(update_fields=["selected_categories"])
+            game.max_questions = max_questions
+            game.save(update_fields=["selected_categories", "max_questions"])
             category_label = "・".join(
                 selected_categories) if selected_categories else "全カテゴリ（先生クイズを除く）"
+            limit_label = f"、上限：{max_questions}問" if max_questions else "、上限：無制限"
             GameLog.objects.create(game=game, event="question_options_changed",
-                                   message=f"出題設定を変更しました（カテゴリ：{category_label}）。")
+                                   message=f"出題設定を変更しました（カテゴリ：{category_label}{limit_label}）。")
             return redirect(f"{reverse('quiz:control', kwargs={'game_id': game.id})}?key={game.admin_token}")
 
+    counts = {row["category"]: row["total"] for row in active_questions.values("category").annotate(total=Count("id"))}
+    category_counts = [(category, counts.get(category, 0)) for category in categories]
     return render(request, "quiz/game_mode.html", {
         "game": game,
         "categories": categories,
+        "category_counts": category_counts,
         "error": error,
     })
 
