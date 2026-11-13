@@ -277,9 +277,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             game.game_started_at = timezone.now()
         next_index = game.current_index + 1
         if not GameQuestion.objects.filter(game=game, position=next_index).exists():
-            # 出題対象の問題をすべて使い切ったら、時間が残っていてもゲームを終了する。
+            # 出題対象を使い切ったら（上限設定があればその問題数で）、時間が残っていても終了する。
             used_count = GameQuestion.objects.filter(game=game).count()
-            if used_count >= self.eligible_questions(game).count():
+            eligible_count = self.eligible_questions(game).count()
+            limit = min(game.max_questions, eligible_count) if game.max_questions else eligible_count
+            if used_count >= limit:
                 self.add_log(game, "questions_exhausted", f"出題できる問題 {used_count} 問を使い切ったため、ゲームを終了しました。")
                 self.finish_game(game)
                 return
@@ -474,7 +476,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if game.game_questions.exists():
             return
         eligible = self.eligible_questions(game)
-        candidates = list(eligible.order_by("?"))
+        query = eligible.order_by("?")
+        if game.max_questions:
+            query = query[:game.max_questions]
+        candidates = list(query)
         if not candidates:
             raise ValueError("Adminで有効な問題を1問以上登録してください。")
         GameQuestion.objects.bulk_create([GameQuestion(game=game, question=question, position=index) for index, question in enumerate(candidates)])

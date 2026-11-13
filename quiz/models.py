@@ -91,6 +91,8 @@ class Game(models.Model):
     title = models.CharField(max_length=100, default="文化祭クイズ")
     max_players = models.PositiveSmallIntegerField(default=5)
     question_count = models.PositiveSmallIntegerField(default=10)
+    max_questions = models.PositiveSmallIntegerField(
+        "出題数の上限", default=0, help_text="0は無制限。この問題数を出題し終えたらゲームを終了する。")
     seconds_per_question = models.PositiveSmallIntegerField(default=20)
     total_seconds = models.PositiveIntegerField(default=300)
     difficulty = models.CharField(
@@ -124,6 +126,11 @@ class Game(models.Model):
             code = f"{secrets.randbelow(1000000):06d}"
             if not Game.objects.filter(join_code=code).exists():
                 return code
+
+    def save(self, *args, **kwargs):
+        if not self.join_code:
+            self.join_code = self.generate_join_code()
+        super().save(*args, **kwargs)
 
 
 class GameQuestion(models.Model):
