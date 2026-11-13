@@ -158,3 +158,31 @@ button,input { font:inherit; } button { cursor:pointer; } a { color:inherit; } h
 .display-join-code span { color:var(--red); font-size:16px; font-weight:900; letter-spacing:.1em; }
 .display-join-code strong { font-size:clamp(44px,7vw,84px); line-height:1; font-weight:1000; letter-spacing:.18em; text-indent:.18em; color:var(--ink); font-variant-numeric:tabular-nums; }
 .display-join-code small { color:var(--gray); font-size:16px; font-weight:700; }
+
+/* 4択早押しの3秒カウントダウン */
+.buzz-timer {
+  margin:18px 0 0;
+  color:var(--red);
+  font-size:clamp(60px,10vw,120px);
+  font-weight:1000;
+  line-height:1;
+  font-variant-numeric:tabular-nums;
+  animation:choice-confirm .45s ease;
+}
+.buzz-timer.buzz-timer-critical { color:var(--ink); animation:buzz-pulse .5s ease infinite; }
+@keyframes buzz-pulse {
+  0%, 100% { transform:scale(1); }
+  50% { transform:scale(1.12); }
+}
+.buzz-deadline {
+  color:var(--red);
+  font-size:15px;
+  font-weight:900;
+  font-variant-numeric:tabular-nums;
+}
+.buzz-deadline.buzz-timer-critical { animation:buzz-pulse .5s ease infinite; }
+.control-choice-correct { background:var(--red) !important; color:#fff; }
+
+/* 4択早押しの選択肢は参照表示（クリック不可・薄くしない） */
+.choice-display, .choice-display:disabled { opacity:1; cursor:default; }
+.choice-display:not(:disabled):is(:hover,:focus-visible) { background:#fff; color:var(--ink); }

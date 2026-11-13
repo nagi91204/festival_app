@@ -140,7 +140,7 @@ function renderPreview() {
   if (!currentQuestionData) return;
   const data = currentQuestionData;
   const meta = `QUESTION ${data.number} / ${data.total}`;
-  const typeName = { choice: "2択・4択問題", buzzer: "早押し問題", audio: "音当て問題", video: "動画当て問題", image: "画像予想問題" }[data.type] || "クイズ";
+  const typeName = { choice: "4択早押し問題", buzzer: "早押し問題", audio: "音当て問題", video: "動画当て問題", image: "画像予想問題" }[data.type] || "クイズ";
 
   // Stop audio when leaving question phase
   if (previewState !== "question") {

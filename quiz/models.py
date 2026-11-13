@@ -108,6 +108,9 @@ class Game(models.Model):
     game_started_at = models.DateTimeField(null=True, blank=True)
     question_open_at = models.DateTimeField(null=True, blank=True)
     result_advance_at = models.DateTimeField(null=True, blank=True)
+    buzz_deadline_at = models.DateTimeField(
+        "早押し後の回答締切", null=True, blank=True,
+        help_text="4択早押しで押した人が3秒以内に口頭回答する締切時刻。")
     buzzed_player = models.ForeignKey(
         "GamePlayer", null=True, blank=True, on_delete=models.SET_NULL, related_name="current_buzz_games")
     created_at = models.DateTimeField(auto_now_add=True)
