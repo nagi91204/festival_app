@@ -51,3 +51,12 @@ if (form) {
   });
   updatePreview();
 }
+
+const joinInput = document.querySelector("#join-code-input");
+const joinForm = document.querySelector(".join-form");
+if (joinInput && joinForm) {
+  joinInput.addEventListener("input", () => {
+    joinInput.value = joinInput.value.replace(/\D/g, "").slice(0, 6);
+    if (joinInput.value.length === 4 || joinInput.value.length === 6) joinForm.submit();
+  });
+}  

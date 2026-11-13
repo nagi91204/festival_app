@@ -142,3 +142,19 @@ button,input { font:inherit; } button { cursor:pointer; } a { color:inherit; } h
 /* 動画当て */
 .preview-question-video { display:block; max-width:min(100%,520px); max-height:220px; margin:0 auto; }
 .video-overlay { position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.8); z-index:50; }.video-overlay video { max-width:92vw; max-height:80vh; }
+
+/* 参加コード（join code） */
+.join-card { margin-top:26px; text-align:center; }
+.join-card h2 { margin:0; font-size:clamp(24px,3vw,32px); letter-spacing:-.03em; }
+.join-card .lead { margin:10px 0 0; }
+.join-form { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:14px; margin-top:24px; }
+.join-form input { width:230px; height:72px; text-align:center; font-size:36px; font-weight:900; letter-spacing:.35em; text-indent:.35em; font-variant-numeric:tabular-nums; }
+.join-form .button { min-height:72px; min-width:150px; }
+.join-error { margin-top:14px; color:var(--red); font-weight:800; }
+.join-card .help-text { margin:16px auto 0; text-align:center; }
+#join-code { display:block; font-size:34px; font-weight:1000; letter-spacing:.2em; color:#fff; }
+.player-url-box .copy-url { margin-top:2px; }
+.display-join-code { display:grid; justify-items:center; gap:6px; margin-top:8px; padding:22px 34px; border:3px solid var(--red); border-radius:20px; background:#fff; box-shadow:0 12px 0 rgba(223,0,17,.13); }
+.display-join-code span { color:var(--red); font-size:16px; font-weight:900; letter-spacing:.1em; }
+.display-join-code strong { font-size:clamp(44px,7vw,84px); line-height:1; font-weight:1000; letter-spacing:.18em; text-indent:.18em; color:var(--ink); font-variant-numeric:tabular-nums; }
+.display-join-code small { color:var(--gray); font-size:16px; font-weight:700; }

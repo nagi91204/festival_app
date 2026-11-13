@@ -1,3 +1,5 @@
+import re
+
 from django.db.models import Count
 from django.db.models.deletion import ProtectedError
 from django.http import Http404
@@ -10,11 +12,42 @@ from .forms import QuestionForm
 
 
 def home(request):
+    return render(request, "quiz/home.html", home_context())
+
+
+def home_context():
     active_questions = Question.objects.filter(is_active=True)
     categories = list(active_questions.exclude(category="").order_by(
         "category").values_list("category", flat=True).distinct())
     question_stats = list(active_questions.values("category").annotate(count=Count("id")))
-    return render(request, "quiz/home.html", {"categories": categories, "question_stats": question_stats})
+    return {"categories": categories, "question_stats": question_stats, "join_error": ""}
+
+
+def join_response(request, code):
+    """参加コードを検証してプレイヤー画面へ。無効ならホームにエラー表示して戻す。"""
+    code = re.sub(r"\D", "", code or "")
+    game = Game.objects.filter(join_code=code).first() if code else None
+    if not game:
+        return home_with_join_error(request, "そのコードのゲームは見つかりません。コードを確認してください。")
+    if game.status == Game.Status.FINISHED:
+        return home_with_join_error(request, "このゲームは終了しました。司会が次のゲームを準備するのをお待ちください。")
+    return redirect("quiz:player", game_id=game.id)
+
+
+def home_with_join_error(request, message):
+    context = home_context()
+    context["join_error"] = message
+    return render(request, "quiz/home.html", context, status=400)
+
+
+@require_POST
+def join(request):
+    return join_response(request, request.POST.get("code", ""))
+
+
+def join_by_code(request, code):
+    """/j/1234/ 形式のショートカット。"""
+    return join_response(request, code)
 
 
 @require_POST
@@ -30,7 +63,8 @@ def new_game(request):
     selected_categories = [category for category in request.POST.getlist(
         "categories") if category in Question.objects.filter(is_active=True).values_list("category", flat=True)]
     game = Game.objects.create(title=title, question_count=1, seconds_per_question=legacy_seconds,
-                               total_seconds=minutes * 60, selected_categories=selected_categories)
+                               total_seconds=minutes * 60, selected_categories=selected_categories,
+                               join_code=Game.generate_join_code())
     category_label = "・".join(
         selected_categories) if selected_categories else "全カテゴリ（先生クイズを除く）"
     GameLog.objects.create(game=game, event="game_created",

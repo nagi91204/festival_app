@@ -277,6 +277,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             game.game_started_at = timezone.now()
         next_index = game.current_index + 1
         if not GameQuestion.objects.filter(game=game, position=next_index).exists():
+            # 出題対象の問題をすべて使い切ったら、時間が残っていてもゲームを終了する。
+            used_count = GameQuestion.objects.filter(game=game).count()
+            if used_count >= self.eligible_questions(game).count():
+                self.add_log(game, "questions_exhausted", f"出題できる問題 {used_count} 問を使い切ったため、ゲームを終了しました。")
+                self.finish_game(game)
+                return
             self.append_random_question(game, next_index)
         question = GameQuestion.objects.select_related("question").get(game=game, position=next_index).question
         game.current_index = next_index

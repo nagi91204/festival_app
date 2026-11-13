@@ -2,7 +2,7 @@ const gameId = document.body.dataset.gameId;
 const adminToken = document.body.dataset.adminToken;
 let state = null;
 const error = document.querySelector("#control-error");
-const quiz = createQuizSocket(gameId, render, (event) => { if (event.type === "error") error.textContent = event.message; }, { adminToken });
+const quiz = createQuizSocket(gameId, render, (event) => { if (event.type === "error") { error.textContent = event.message; pendingModeRedirect = false; } }, { adminToken });
 const playerUrl = document.body.dataset.playerUrl;
 document.querySelector("#player-link").href = playerUrl;
 document.querySelector("#copy-player-url").onclick = async () => {
@@ -21,6 +21,11 @@ document.querySelector("#audio-button").onclick = () => quiz.send("play_audio");
 document.querySelector("#video-button").onclick = () => quiz.send("play_video");
 document.querySelector("#end-game-button").onclick = () => quiz.send("finish_game");
 document.querySelector("#reset-game-button").onclick = () => quiz.send("reset_game");
+let pendingModeRedirect = false;
+document.querySelector("#reset-mode-button").onclick = () => {
+  pendingModeRedirect = true;
+  quiz.send("reset_game");
+};
 document.querySelector("#correct-button").onclick = () => quiz.send("judge_buzzer", { correct:true });
 document.querySelector("#wrong-button").onclick = () => quiz.send("judge_buzzer", { correct:false });
 document.querySelector("#minutes-button").onclick = () => quiz.send("set_game_minutes", { minutes:document.querySelector("#minutes-input").value });
@@ -49,6 +54,12 @@ function render(nextState) {
   setActionState(document.querySelector("#video-button"), isVideoQuestion && ["buzzer_open", "buzzer_locked"].includes(game.phase));
   setActionState(document.querySelector("#end-game-button"), !isFinished);
   setActionState(document.querySelector("#reset-game-button"), isFinished);
+  setActionState(document.querySelector("#reset-mode-button"), isFinished && !pendingModeRedirect);
+  if (pendingModeRedirect && game.phase === "lobby") {
+    pendingModeRedirect = false;
+    window.location.href = document.querySelector("#edit-mode-link").href;
+    return;
+  }
   document.querySelector("#game-finished-note").classList.toggle("hidden", !isFinished);
   document.querySelector("#buzzer-judge-card").classList.toggle("hidden", game.phase !== "buzzer_locked" || !game.buzzed_player_id);
   document.querySelector("#host-settings").classList.toggle("hidden", game.phase !== "lobby");
