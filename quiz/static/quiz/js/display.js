@@ -51,7 +51,7 @@ function rankingHtml(players) { return players.slice(0, 3).map((p, index) => `<l
 function historicalRankingHtml(entries) { return entries.map((entry, index) => `<li><span>${index + 1}位　${escapeHtml(entry.player_name)}</span><strong>${entry.score} pt</strong></li>`).join("") || "<li>最初の記録を作ろう！</li>"; }
 function render(nextState) {
   state = nextState; const { game, question, players, rankings, past_rankings: pastRankings = [] } = state;
-  document.querySelector("#display-header-title").textContent = game.phase === "lobby" ? "文化祭クイズアプリ" : game.phase === "intro" ? "NEXT QUESTION" : question?.type === "audio" ? "音当て問題" : question?.type === "video" ? "動画当て問題" : ["buzzer_open", "buzzer_locked"].includes(game.phase) ? "早押し問題" : "2択・4択問題";
+  document.querySelector("#display-header-title").textContent = game.phase === "lobby" ? "文化祭クイズアプリ" : game.phase === "intro" ? "NEXT QUESTION" : question?.type === "audio" ? "音当て問題" : question?.type === "video" ? "動画当て問題" : ["buzzer_open", "buzzer_locked"].includes(game.phase) ? (question?.type === "choice" ? "4択早押し" : "早押し問題") : "2択・4択問題";
   const isFinalOvertime = game.phase !== "finished" && question && game.deadline && Date.now() >= new Date(game.deadline).getTime();
   document.querySelector("#display-header-status").textContent = game.phase === "lobby" ? "ゲーム開始まで" : game.phase === "finished" ? "FINAL RESULT" : isFinalOvertime ? "この問題が最終問題です" : "ゲーム終了まで";
   document.querySelector("#display-lobby").classList.toggle("hidden", game.phase !== "lobby");
@@ -70,7 +70,7 @@ function render(nextState) {
   }
   if (!question) return;
   document.querySelector("#question-meta").textContent = `QUESTION ${question.number} / ${question.total}　${question.category || ""}`;
-  const typeName = ({ choice:"2択・4択問題", buzzer:"早押し問題", audio:"音当て問題", video:"動画当て問題", image:"画像予想問題" })[question.type] || "クイズ";
+  const typeName = ({ choice:"4択早押し問題", buzzer:"早押し問題", audio:"音当て問題", video:"動画当て問題", image:"画像予想問題" })[question.type] || "クイズ";
   document.querySelector("#display-question").textContent = game.phase === "intro" ? `次は「${typeName}」！` : question.body;
   const videoUrl = game.phase === "intro" ? "" : question.video_url || "";
   if (video.getAttribute("src") !== videoUrl) video.src = videoUrl;
@@ -78,10 +78,32 @@ function render(nextState) {
   const image = document.querySelector("#question-image"); image.src = question.image_url || ""; image.classList.toggle("hidden", !question.image_url || game.phase === "intro" || Boolean(videoUrl));
   document.querySelector("#display-choices").innerHTML = question.type === "choice" && game.phase !== "intro" ? question.choices.map((text, i) => `<div class="display-choice ${game.phase === "result" && question.correct_choice === i + 1 ? "display-choice-correct" : ""}">${i + 1}. ${escapeHtml(text)}</div>`).join("") : "";
   const buzzed = players.find((p) => p.id === game.buzzed_player_id); document.querySelector("#buzzed-name").textContent = buzzed ? `${buzzed.nickname} さんが早押し！` : game.phase === "intro" ? "まもなく問題スタート！" : "";
+  updateDisplayBuzzTimer(buzzed, game);
   const result = document.querySelector("#display-result"); result.classList.toggle("hidden", game.phase !== "result");
   document.querySelector("#correct-answer").textContent = game.phase === "result" ? `正解：${question.correct_text || ""}` : "";
   document.querySelector("#explanation").textContent = question.explanation || "";
 }
 function formatTimer(seconds) { return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; }
+let displayBuzzTimerInterval = null;
+function updateDisplayBuzzTimer(buzzed, game) {
+  const timer = document.querySelector("#buzz-timer");
+  const active = Boolean(buzzed) && Boolean(game.buzz_deadline_at) && game.phase === "buzzer_locked";
+  timer.classList.toggle("hidden", !active);
+  if (!active) { window.clearInterval(displayBuzzTimerInterval); displayBuzzTimerInterval = null; return; }
+  const update = () => {
+    const remaining = (new Date(game.buzz_deadline_at).getTime() - Date.now()) / 1000;
+    if (remaining <= 0) {
+      // 回答時間の終了後は判定待ち。タイマーは隠す。
+      timer.classList.add("hidden");
+      window.clearInterval(displayBuzzTimerInterval);
+      displayBuzzTimerInterval = null;
+      return;
+    }
+    timer.textContent = Math.ceil(remaining);
+    timer.classList.toggle("buzz-timer-critical", remaining <= 1);
+  };
+  update();
+  if (!displayBuzzTimerInterval) displayBuzzTimerInterval = window.setInterval(update, 100);
+}
 setInterval(() => { const deadline = state?.game.deadline; document.querySelector("#timer").textContent = deadline && state.game.status === "running" ? formatTimer(Math.max(0, Math.ceil((new Date(deadline) - Date.now()) / 1000))) : "--"; }, 200);
 setInterval(() => quiz.send("tick"), 1000);

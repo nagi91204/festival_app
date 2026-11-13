@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from .consumers import QuizConsumer
-from .models import Game, GameLog, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry, TEACHER_QUIZ_CATEGORY
+from .models import BuzzerAttempt, Game, GameLog, GamePlayer, GameQuestion, PlayerAnswer, Question, RankingEntry, TEACHER_QUIZ_CATEGORY
 
 
 class QuestionValidationTests(TestCase):
@@ -274,7 +274,8 @@ class ConsumerTransitionTests(TestCase):
         self.assertEqual(game.phase, Game.Phase.ANSWER_CLOSED)
 
     def test_all_connected_players_answering_starts_timed_result(self):
-        question = Question.objects.create(title="問題", body="本文", choice_1="A", choice_2="B", correct_choice=1)
+        # 4択は早押し形式のため、全員同時回答の自動締め切りは画像予想が対象。
+        question = Question.objects.create(title="問題", body="本文", question_type=Question.QuestionType.IMAGE, choice_1="A", choice_2="B", correct_choice=1)
         game = Game.objects.create(status=Game.Status.RUNNING, phase=Game.Phase.QUESTION, current_index=0)
         game_question = GameQuestion.objects.create(game=game, question=question, position=0)
         first = GamePlayer.objects.create(game=game, nickname="一人目", slot=1, connected=True)
@@ -412,3 +413,139 @@ class VideoQuestionFlowTests(TestCase):
 
         self.assertEqual(state["question"]["type"], Question.QuestionType.VIDEO)
         self.assertTrue(state["question"]["video_url"].endswith(".mp4"))
+
+
+class ChoiceBuzzerFlowTests(TestCase):
+    """4択は早押し形式で行う: 押したら3秒以内に口頭回答、外れたらお手つき。"""
+
+    def _choice_game(self, **game_kwargs):
+        question = Question.objects.create(
+            title="4択問題", body="この都道府県は？", question_type=Question.QuestionType.CHOICE,
+            choice_1="東京都", choice_2="大阪府", choice_3="北海道", choice_4="沖縄県", correct_choice=3)
+        game = Game.objects.create(status=Game.Status.RUNNING, **game_kwargs)
+        game_question = GameQuestion.objects.create(game=game, question=question, position=0)
+        return game, game_question
+
+    def test_choice_question_opens_as_buzzer_phase(self):
+        game, _ = self._choice_game(phase=Game.Phase.INTRO, current_index=0)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        consumer.open_current_question(game)
+
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.BUZZER_OPEN)
+
+    def test_buzz_on_choice_question_sets_three_second_deadline(self):
+        game, game_question = self._choice_game(phase=Game.Phase.BUZZER_OPEN, current_index=0)
+        player = GamePlayer.objects.create(game=game, nickname="回答者", slot=1)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+        consumer.player_id = str(player.id)
+
+        async_to_sync(consumer.buzz)()
+
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.BUZZER_LOCKED)
+        self.assertEqual(game.buzzed_player, player)
+        self.assertIsNotNone(game.buzz_deadline_at)
+        remaining = (game.buzz_deadline_at - timezone.now()).total_seconds()
+        self.assertAlmostEqual(remaining, 3, delta=1)
+
+    def test_buzz_deadline_passes_without_judgment_keeps_waiting_for_host(self):
+        """3秒経過しても自動お手つきにはならず、司会の判定を無制限に待つ。"""
+        game, game_question = self._choice_game(phase=Game.Phase.BUZZER_LOCKED, current_index=0)
+        player = GamePlayer.objects.create(game=game, nickname="回答者", slot=1, connected=True)
+        BuzzerAttempt.objects.create(game_question=game_question, player=player)
+        game.buzzed_player = player
+        game.buzz_deadline_at = timezone.now() - timedelta(seconds=1)
+        game.save(update_fields=["buzzed_player", "buzz_deadline_at"])
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.tick)()
+
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.BUZZER_LOCKED)
+        self.assertEqual(game.buzzed_player, player)
+        # 締切を過ぎても司会の判定は無制限にできる。
+        async_to_sync(consumer.judge_buzzer)(True)
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.RESULT)
+
+    def test_all_players_judged_wrong_auto_advance_to_result(self):
+        """全員が不正解判定（お手つき）になったら自動で正解発表へ。"""
+        game, game_question = self._choice_game(phase=Game.Phase.BUZZER_LOCKED, current_index=0)
+        first = GamePlayer.objects.create(game=game, nickname="一人目", slot=1, connected=True)
+        second = GamePlayer.objects.create(game=game, nickname="二人目", slot=2, connected=True)
+        BuzzerAttempt.objects.create(game_question=game_question, player=first)
+        game.buzzed_player = first
+        game.save(update_fields=["buzzed_player"])
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        async_to_sync(consumer.judge_buzzer)(False)
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.BUZZER_OPEN)
+
+        # 二人目が押して不正解 → 全員お手つきで自動進行。
+        consumer.player_id = str(second.id)
+        async_to_sync(consumer.buzz)()
+        async_to_sync(consumer.judge_buzzer)(False)
+
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.RESULT)
+        self.assertIsNotNone(game.result_advance_at)
+
+    def test_judged_wrong_player_cannot_buzz_again(self):
+        game, game_question = self._choice_game(phase=Game.Phase.BUZZER_LOCKED, current_index=0)
+        player = GamePlayer.objects.create(game=game, nickname="回答者", slot=1, connected=True)
+        GamePlayer.objects.create(game=game, nickname="二人目", slot=2, connected=True)
+        BuzzerAttempt.objects.create(game_question=game_question, player=player)
+        game.buzzed_player = player
+        game.save(update_fields=["buzzed_player"])
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+        consumer.player_id = str(player.id)
+
+        async_to_sync(consumer.judge_buzzer)(False)
+
+        game.refresh_from_db()
+        self.assertEqual(game.phase, Game.Phase.BUZZER_OPEN)
+        attempt = game_question.buzz_attempts.get(player=player)
+        self.assertFalse(attempt.is_correct)
+        self.assertIsNone(game.buzz_deadline_at)
+        with self.assertRaises(ValueError):
+            async_to_sync(consumer.buzz)()
+
+    def test_state_marks_players_who_already_buzzed(self):
+        game, game_question = self._choice_game(phase=Game.Phase.BUZZER_OPEN, current_index=0)
+        player = GamePlayer.objects.create(game=game, nickname="回答者", slot=1)
+        BuzzerAttempt.objects.create(game_question=game_question, player=player, is_correct=False)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        state = async_to_sync(consumer.get_state)(False, None)
+
+        self.assertTrue(state["players"][0]["buzzed"])
+
+class StateJsonSerializableTests(TestCase):
+    """司会・参加者の state は必ず JSON 化できる。datetime の混入を防ぐ回帰テスト。"""
+
+    def test_admin_state_with_buzz_attempt_is_json_serializable(self):
+        import json
+
+        question = Question.objects.create(
+            title="4択問題", body="この都道府県は？", question_type=Question.QuestionType.CHOICE,
+            choice_1="東京都", choice_2="大阪府", correct_choice=1)
+        game = Game.objects.create(status=Game.Status.RUNNING, phase=Game.Phase.BUZZER_LOCKED, current_index=0)
+        game_question = GameQuestion.objects.create(game=game, question=question, position=0)
+        player = GamePlayer.objects.create(game=game, nickname="回答者", slot=1)
+        BuzzerAttempt.objects.create(game_question=game_question, player=player, is_correct=False)
+        consumer = QuizConsumer()
+        consumer.game_id = str(game.id)
+
+        for is_admin in (False, True):
+            with self.subTest(is_admin=is_admin):
+                state = async_to_sync(consumer.get_state)(is_admin, str(player.id))
+                json.dumps({"type": "state", "state": state})
